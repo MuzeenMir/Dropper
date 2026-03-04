@@ -15,6 +15,7 @@ build/
 *.whl
 venv/
 .venv/
+sentinel_env/
 
 # IDE
 .vscode/
