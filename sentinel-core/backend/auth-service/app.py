@@ -107,6 +107,9 @@ class User(db.Model):
     role = db.Column(db.Enum(UserRole), nullable=False)
     status = db.Column(db.Enum(UserStatus), default=UserStatus.ACTIVE)
     tenant_id = db.Column(db.BigInteger, nullable=True)
+    mfa_secret = db.Column(db.String(32), nullable=True)
+    mfa_enabled = db.Column(db.Boolean, default=False)
+    mfa_backup_codes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
     failed_login_attempts = db.Column(db.Integer, default=0)
@@ -360,6 +363,17 @@ def login():
         # Reset login attempts and update last login
         reset_login_attempts(user)
 
+        # If MFA is enabled, require second factor before issuing full tokens
+        if getattr(user, 'mfa_enabled', False) and user.mfa_secret:
+            import secrets as _secrets
+            mfa_token = _secrets.token_urlsafe(32)
+            redis_client.setex(f"mfa_challenge:{mfa_token}", 300, str(user.id))
+            return jsonify({
+                'mfa_required': True,
+                'mfa_token': mfa_token,
+                'message': 'MFA verification required',
+            }), 200
+
         # Generate access and refresh tokens with tenant context
         additional_claims = {
             "tenant_id": user.tenant_id,
@@ -385,6 +399,77 @@ def login():
     except Exception as e:
         logger.error(f"Login error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/v1/auth/mfa/challenge', methods=['POST'])
+@limiter.limit("10 per minute")
+def mfa_challenge():
+    """Complete MFA challenge: exchange mfa_token + TOTP code for full JWT."""
+    try:
+        import pyotp
+        import hashlib
+        import json as _json
+
+        data = request.get_json()
+        if not data or 'mfa_token' not in data or 'code' not in data:
+            return jsonify({'error': 'mfa_token and code required'}), 400
+
+        mfa_token = data['mfa_token']
+        code = data['code']
+
+        # Look up pending MFA challenge
+        user_id = redis_client.get(f"mfa_challenge:{mfa_token}")
+        if not user_id:
+            return jsonify({'error': 'Invalid or expired MFA token'}), 401
+
+        user_id = user_id.decode('utf-8') if isinstance(user_id, bytes) else user_id
+        user = User.query.get(int(user_id))
+        if not user or not user.mfa_secret:
+            return jsonify({'error': 'User not found or MFA not configured'}), 401
+
+        # Try TOTP code first
+        totp = pyotp.TOTP(user.mfa_secret)
+        verified = totp.verify(code, valid_window=1)
+
+        # Try backup codes if TOTP fails
+        if not verified and user.mfa_backup_codes:
+            code_hash = hashlib.sha256(code.encode()).hexdigest()
+            backup_codes = _json.loads(user.mfa_backup_codes)
+            if code_hash in backup_codes:
+                backup_codes.remove(code_hash)
+                user.mfa_backup_codes = _json.dumps(backup_codes)
+                verified = True
+
+        if not verified:
+            return jsonify({'error': 'Invalid TOTP code'}), 401
+
+        # Consume the challenge token
+        redis_client.delete(f"mfa_challenge:{mfa_token}")
+
+        # Issue full JWT tokens
+        additional_claims = {
+            "tenant_id": user.tenant_id,
+            "role": user.role.value,
+        }
+        access_token = create_access_token(
+            identity=str(user.id), additional_claims=additional_claims
+        )
+        refresh_token = create_refresh_token(
+            identity=str(user.id), additional_claims=additional_claims
+        )
+        db.session.commit()
+
+        return jsonify({
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+            'user': user.to_dict(),
+            'token_type': 'Bearer',
+            'expires_in': int(app.config['JWT_ACCESS_TOKEN_EXPIRES'].total_seconds())
+        }), 200
+
+    except Exception as e:
+        logger.error(f"MFA challenge error: {str(e)}")
+        return jsonify({'error': 'MFA verification failed'}), 500
 
 
 @app.route('/api/v1/auth/refresh', methods=['POST'])
