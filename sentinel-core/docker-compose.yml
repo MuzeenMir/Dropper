@@ -32,6 +32,23 @@ services:
     networks:
       - sentinel-network
 
+  # Database migrations (runs once before auth-service starts)
+  db-migrate:
+    build:
+      context: ./backend
+      dockerfile: auth-service/Dockerfile
+    container_name: sentinel-db-migrate
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-sentinel}:${POSTGRES_PASSWORD:-sentinel_password}@postgres:5432/${POSTGRES_DB:-sentinel_db}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sentinel-network
+    working_dir: /app/migrations
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    restart: "no"
+
   # Authentication service with dependency
   auth-service:
     build:
@@ -50,6 +67,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_started
     networks:

@@ -22,6 +22,7 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
 COPY auth-service/ auth-service/
+COPY migrations/ migrations/
 
 RUN chown -R sentinel:sentinel /app
 USER sentinel
