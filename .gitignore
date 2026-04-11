@@ -73,8 +73,19 @@ sentinel-core/training/datasets/data/cicids2017/
 sentinel-core/training/datasets/data/unsw_nb15/
 sentinel-core/training/datasets/data/MANIFEST.txt
 
+# Preprocessed dataset cache (regenerated from raw data by data_loader.py;
+# cicids2018_full.npz alone is ~900 MB)
+sentinel-core/training/datasets/cache/
+
 # Trained model weights (large binary files)
 sentinel-core/backend/ai-engine/trained_models/
+
+# TypeScript incremental build info — regenerated on every `tsc` run
+*.tsbuildinfo
+
+# External reference PDFs kept locally (system cards, analyst reports, etc.)
+# Scoped to repo root so genuine PDFs under sentinel-core/docs/ can still be tracked.
+/*.pdf
 
 # AWS keys and local CLI install (never commit)
 *.pem

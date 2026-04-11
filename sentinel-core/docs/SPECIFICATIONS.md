@@ -34,6 +34,29 @@ The following documents remain tracked in git for quick developer reference:
 | [../training/README.md](../training/README.md) | Training pipeline setup and datasets |
 | [../readme.md](../readme.md) | Project overview and quick start |
 
+## Governance and Safety Documents
+
+Following a comparison against the Claude Mythos Preview System Card (April 7, 2026),
+SENTINEL now maintains a set of governance and safety documents modelled on the
+discipline used by frontier-AI system cards. These define what SENTINEL claims about
+itself, what it does to protect those claims, and what evidence must be produced per
+release. They are the authoritative source for release gating decisions.
+
+| Document | Purpose |
+|----------|---------|
+| [RISK-TIERS.md](RISK-TIERS.md) | Product risk tiers (D-1 Detection, DRL-1 Policy, C-1 Compliance) — claim, mitigation, evidence per release. Analogue of Mythos §2 RSP evaluations. |
+| [MODEL-RED-TEAM.md](MODEL-RED-TEAM.md) | Adversarial red-team plan for the detector ensemble and PPO agent (RT-1 through RT-8). Analogue of Mythos §3.3 Frontier Red Team. |
+| [CONTAMINATION-POLICY.md](CONTAMINATION-POLICY.md) | Train/eval separation rules, feedback quarantine, memorisation detection. Analogue of Mythos §6.2 Contamination. |
+| [DRL-ALIGNMENT.md](DRL-ALIGNMENT.md) | Alignment assessment for the PPO agent — reward function review, staged rollout, kill switch, incident log. Analogue of Mythos §4 Alignment assessment. |
+| [IMPRESSIONS.md](IMPRESSIONS.md) | Qualitative operator anecdotes — good behaviour, bad behaviour, weird-but-not-wrong. Analogue of Mythos §7 Impressions. |
+| [EXTERNAL-TESTING.md](EXTERNAL-TESTING.md) | External reviewer program — pen testers, academic ML-security, MSSPs, compliance auditors. Analogue of Mythos §1.1.5 external testing. |
+
+A comparative analysis between SENTINEL and the Claude Mythos Preview System Card,
+along with a first-draft SENTINEL System Card PDF, lives at the repository root:
+
+- `SENTINEL-vs-Mythos-Comparison.md`
+- `SENTINEL-System-Card.pdf`
+
 ## Document Lifecycle
 
 These specifications are living documents. They should be updated when:
