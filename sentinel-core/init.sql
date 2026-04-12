@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS users (
     role                VARCHAR(20)  NOT NULL DEFAULT 'viewer',
     status              VARCHAR(20)  DEFAULT 'active',
     tenant_id           BIGINT,
+    mfa_secret          VARCHAR(32),
+    mfa_enabled         BOOLEAN      DEFAULT FALSE,
+    mfa_backup_codes    TEXT,
     created_at          TIMESTAMP    DEFAULT NOW(),
     last_login          TIMESTAMP,
     failed_login_attempts INT        DEFAULT 0,
@@ -30,12 +33,17 @@ CREATE TABLE IF NOT EXISTS token_blacklist (
 
 -- ─── Tenants ────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS tenants (
-    id          BIGSERIAL PRIMARY KEY,
-    name        VARCHAR(100) UNIQUE NOT NULL,
-    slug        VARCHAR(100) UNIQUE NOT NULL,
-    status      VARCHAR(20) DEFAULT 'active',
-    created_at  TIMESTAMP   DEFAULT NOW(),
-    settings    JSONB       DEFAULT '{}'
+    id              BIGSERIAL PRIMARY KEY,
+    tenant_id       VARCHAR(36) UNIQUE NOT NULL,
+    name            VARCHAR(200) UNIQUE NOT NULL,
+    display_name    VARCHAR(200),
+    status          VARCHAR(20) NOT NULL DEFAULT 'active',
+    plan            VARCHAR(50) NOT NULL DEFAULT 'professional',
+    settings        TEXT        DEFAULT '{}',
+    data_region     VARCHAR(50) DEFAULT 'us-east-1',
+    retention_days  INT         DEFAULT 90,
+    created_at      TIMESTAMP   NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMP   NOT NULL DEFAULT NOW()
 );
 
 -- ─── Audit log ──────────────────────────────────────────────────────────────

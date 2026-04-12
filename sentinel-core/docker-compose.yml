@@ -128,6 +128,8 @@ services:
       - XAI_SERVICE_URL=http://xai-service:5006
       - AI_ENGINE_URL=http://ai-engine:5003
       - DRL_ENGINE_URL=http://drl-engine:5005
+      - HARDENING_SERVICE_URL=http://hardening-service:5011
+      - HIDS_AGENT_URL=http://hids-agent:5010
       - REDIS_URL=redis://redis:6379
     depends_on:
       - auth-service
@@ -136,6 +138,8 @@ services:
       - policy-orchestrator
       - compliance-engine
       - xai-service
+      - hardening-service
+      - hids-agent
     networks:
       - sentinel-network
     restart: unless-stopped

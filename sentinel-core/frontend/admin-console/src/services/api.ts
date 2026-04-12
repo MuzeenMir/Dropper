@@ -111,9 +111,9 @@ export const alertApi = {
   getAlerts: (params?: { status?: string; severity?: string; page?: number }) =>
     api.get('/api/v1/alerts', { params }),
   getAlert: (id: string) => api.get(`/api/v1/alerts/${id}`),
-  acknowledge: (id: string) => api.put(`/api/v1/alerts/${id}/acknowledge`),
-  resolve: (id: string) => api.put(`/api/v1/alerts/${id}/resolve`),
-  ignore: (id: string) => api.put(`/api/v1/alerts/${id}/ignore`),
+  acknowledge: (id: string) => api.post(`/api/v1/alerts/${id}/acknowledge`),
+  resolve: (id: string) => api.post(`/api/v1/alerts/${id}/resolve`),
+  ignore: (id: string) => api.put(`/api/v1/alerts/${id}`, { status: 'ignored' }),
   getStats: () => api.get('/api/v1/alerts/stats'),
 }
 

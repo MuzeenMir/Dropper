@@ -32,6 +32,8 @@ app.config['COMPLIANCE_ENGINE_URL'] = os.environ.get('COMPLIANCE_ENGINE_URL', 'h
 app.config['XAI_SERVICE_URL'] = os.environ.get('XAI_SERVICE_URL', 'http://xai-service:5006')
 app.config['AI_ENGINE_URL'] = os.environ.get('AI_ENGINE_URL', 'http://ai-engine:5003')
 app.config['DRL_ENGINE_URL'] = os.environ.get('DRL_ENGINE_URL', 'http://drl-engine:5005')
+app.config['HARDENING_SERVICE_URL'] = os.environ.get('HARDENING_SERVICE_URL', 'http://hardening-service:5011')
+app.config['HIDS_AGENT_URL'] = os.environ.get('HIDS_AGENT_URL', 'http://hids-agent:5010')
 app.config['REDIS_URL'] = os.environ.get('REDIS_URL', 'redis://localhost:6379')
 
 # Initialize extensions
@@ -409,6 +411,24 @@ def acknowledge_alert(alert_id):
         logger.error(f"Alert service error: {e}")
         return jsonify({'error': 'Alert service unavailable'}), 503
 
+@app.route('/api/v1/alerts/<int:alert_id>/resolve', methods=['POST'])
+@require_auth
+def resolve_alert(alert_id):
+    """Resolve an alert"""
+    return _proxy_to(app.config['ALERT_SERVICE_URL'], f'/api/v1/alerts/{alert_id}/resolve')
+
+@app.route('/api/v1/alerts/<int:alert_id>', methods=['PUT'])
+@require_auth
+def update_alert(alert_id):
+    """Update alert status (e.g. ignore)"""
+    return _proxy_to(app.config['ALERT_SERVICE_URL'], f'/api/v1/alerts/{alert_id}')
+
+@app.route('/api/v1/alerts/stats', methods=['GET'])
+@require_auth
+def get_alert_stats():
+    """Proxy alert stats (frontend calls /stats, backend serves /statistics)"""
+    return _proxy_to(app.config['ALERT_SERVICE_URL'], '/api/v1/alerts/statistics')
+
 # Configuration endpoints
 @app.route('/api/v1/config', methods=['GET'])
 @require_role('admin')
@@ -686,6 +706,78 @@ def drl_action_space():
 @require_auth
 def drl_state_space():
     return _proxy_to(app.config['DRL_ENGINE_URL'], '/api/v1/state-space')
+
+# ── Hardening Service proxy ──────────────────────────────────────────────
+
+@app.route('/api/v1/hardening/scan', methods=['GET', 'POST'])
+@require_auth
+def hardening_scan():
+    """Get latest scan results or trigger a new scan"""
+    return _proxy_to(app.config['HARDENING_SERVICE_URL'], '/api/v1/hardening/scan')
+
+@app.route('/api/v1/hardening/posture', methods=['GET'])
+@require_auth
+def hardening_posture():
+    """Get current hardening posture"""
+    return _proxy_to(app.config['HARDENING_SERVICE_URL'], '/api/v1/hardening/posture')
+
+@app.route('/api/v1/hardening/remediations', methods=['GET'])
+@require_auth
+def hardening_remediations():
+    """Get available remediations"""
+    return _proxy_to(app.config['HARDENING_SERVICE_URL'], '/api/v1/hardening/remediations')
+
+@app.route('/api/v1/hardening/remediate/<check_id>', methods=['POST'])
+@require_auth
+def hardening_remediate(check_id):
+    """Apply a specific remediation"""
+    return _proxy_to(app.config['HARDENING_SERVICE_URL'], f'/api/v1/hardening/remediate/{check_id}')
+
+
+# ── HIDS Agent proxy ────────────────────────────────────────────────────
+
+@app.route('/api/v1/hids/events', methods=['GET'])
+@require_auth
+def hids_events():
+    """Get HIDS events"""
+    return _proxy_to(app.config['HIDS_AGENT_URL'], '/api/v1/hids/events')
+
+@app.route('/api/v1/hids/alerts', methods=['GET'])
+@require_auth
+def hids_alerts():
+    """Get HIDS alerts"""
+    return _proxy_to(app.config['HIDS_AGENT_URL'], '/api/v1/hids/alerts')
+
+@app.route('/api/v1/hids/status', methods=['GET'])
+@require_auth
+def hids_status():
+    """Get HIDS agent status"""
+    return _proxy_to(app.config['HIDS_AGENT_URL'], '/api/v1/hids/status')
+
+
+# ── Admin Users proxy (maps /admin/users -> auth-service /auth/users) ───
+
+@app.route('/api/v1/admin/users', methods=['GET'])
+@require_auth
+def admin_get_users():
+    """List users (admin)"""
+    return _proxy_to(app.config['AUTH_SERVICE_URL'], '/api/v1/auth/users')
+
+@app.route('/api/v1/admin/users/<int:user_id>', methods=['PUT'])
+@require_auth
+def admin_update_user(user_id):
+    """Update a user (admin)"""
+    return _proxy_to(app.config['AUTH_SERVICE_URL'], f'/api/v1/auth/users/{user_id}')
+
+
+# ── Traffic proxy (data-collector) ──────────────────────────────────────
+
+@app.route('/api/v1/traffic', methods=['GET'])
+@require_auth
+def get_traffic():
+    """Get network traffic stats"""
+    return _proxy_to(app.config['DATA_COLLECTOR_URL'], '/api/v1/traffic')
+
 
 # Error handlers
 @app.errorhandler(429)
