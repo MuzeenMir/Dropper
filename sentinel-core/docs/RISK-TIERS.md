@@ -156,11 +156,19 @@ For any PPO checkpoint promoted to enforcement, on a held-out shadow traffic set
 
 ### Status in this release
 
-**[planned]** — The staged rollout pipeline is designed but not fully wired. The
-policy orchestrator currently supports shadow/enforce modes; canary scoping by VLAN
-exists in `policy-orchestrator/scopes.py` but is not yet integrated with the DRL engine's
-checkpoint promotion flow. The kill switch endpoint does not exist. See the
-[Decision log](#decision-log).
+**[partial]** — Shadow mode is now the **default** (`DRL_SHADOW_MODE=true` in
+`docker-compose.yml`, propagated to drl-engine config and respected by the policy
+orchestrator's `/api/v1/policies/apply` endpoint, which returns HTTP 202 + `shadow:true`
+for any decision tagged `shadow=true` or `enforce=false`). The decode path in
+`backend/drl-engine/app.py` now annotates every decision with `shadow` and `enforce`
+flags. Canary scoping by VLAN exists in `policy-orchestrator/scopes.py` but is not yet
+integrated with the DRL engine's checkpoint promotion flow. The kill-switch endpoint
+(`POST /api/v1/drl/kill-switch`) does not exist yet. See the [Decision log](#decision-log).
+
+**Promotion ladder:**
+1. `DRL_SHADOW_MODE=true` (default) — actions logged + tagged shadow=true, orchestrator refuses to enforce.
+2. Set `DRL_SHADOW_MODE=false` on a single canary cluster + scope to one VLAN/account in `scopes.py`.
+3. After ≥72h with override rate < 1% and no compliance regression, flip globally.
 
 ### Failure modes this tier is trying to rule out
 

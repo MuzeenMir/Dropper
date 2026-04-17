@@ -290,3 +290,72 @@ jobs:
 
       - name: Run micro-benchmarks
         run: python -m pytest tests/performance/test_microbench.py -v --tb=short
+
+  e2e-smoke:
+    name: E2E smoke (compose up + login + API call)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    defaults:
+      run:
+        working-directory: sentinel-core
+    env:
+      JWT_SECRET_KEY: ci-smoke-not-a-real-secret-do-not-reuse
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: Admin@123!SmokeTest
+      ADMIN_EMAIL: admin@example.com
+      POSTGRES_PASSWORD: smoke_pg_password
+      DRL_SHADOW_MODE: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bring up minimal smoke stack
+        run: |
+          docker compose up -d --build \
+            postgres redis db-migrate auth-service api-gateway \
+            ai-engine drl-engine policy-orchestrator alert-service
+
+      - name: Wait for api-gateway healthy (max 120s)
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/health >/dev/null; then
+              echo "gateway healthy after ${i} attempts"; exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::api-gateway never became healthy"
+          docker compose logs api-gateway auth-service postgres
+          exit 1
+
+      - name: Login + capture token
+        id: login
+        run: |
+          set -e
+          RESP=$(curl -sf -X POST http://localhost:8080/api/v1/auth/login \
+            -H "Content-Type: application/json" \
+            -d "{\"username\":\"${ADMIN_USERNAME}\",\"password\":\"${ADMIN_PASSWORD}\"}")
+          TOKEN=$(echo "$RESP" | python -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+          if [ -z "$TOKEN" ]; then echo "::error::no token in login response: $RESP"; exit 1; fi
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticated GET /api/v1/threats
+        run: |
+          curl -sf -H "Authorization: Bearer ${{ steps.login.outputs.token }}" \
+            http://localhost:8080/api/v1/threats | head -c 500
+
+      - name: Authenticated GET /api/v1/statistics
+        run: |
+          curl -sf -H "Authorization: Bearer ${{ steps.login.outputs.token }}" \
+            http://localhost:8080/api/v1/statistics
+
+      - name: DRL shadow-mode sanity (decision NOT enforced)
+        run: |
+          DEC=$(curl -sf -H "Authorization: Bearer ${{ steps.login.outputs.token }}" \
+            -H "Content-Type: application/json" \
+            -X POST http://localhost:8080/api/v1/drl/decide \
+            -d '{"detection_id":"smoke","threat_score":0.95,"threat_type":"brute_force","source_ip":"1.2.3.4","dest_port":22,"protocol":"TCP","asset_criticality":3}' || true)
+          echo "$DEC"
+          echo "$DEC" | python -c "import sys,json;d=json.load(sys.stdin);assert d.get('shadow') is True, d"
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
