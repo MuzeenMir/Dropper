@@ -65,28 +65,28 @@ test.describe('Alerts — triage workflow', () => {
     await page.goto('/alerts')
 
     const ackRequest = page.waitForRequest(
-      (req) => req.url().includes('/alerts/ALR-1/acknowledge') && req.method() === 'PUT',
+      (req) => req.url().includes('/alerts/ALR-1/acknowledge') && req.method() === 'POST',
     )
 
     const firstRow = page.locator('table tbody tr').first()
     await firstRow.getByRole('button', { name: 'Acknowledge' }).click()
 
     const req = await ackRequest
-    expect(req.method()).toBe('PUT')
+    expect(req.method()).toBe('POST')
   })
 
   test('resolves an alert', async ({ page }) => {
     await page.goto('/alerts')
 
     const resolveRequest = page.waitForRequest(
-      (req) => req.url().includes('/alerts/ALR-1/resolve') && req.method() === 'PUT',
+      (req) => req.url().includes('/alerts/ALR-1/resolve') && req.method() === 'POST',
     )
 
     const firstRow = page.locator('table tbody tr').first()
     await firstRow.getByRole('button', { name: 'Resolve' }).click()
 
     const req = await resolveRequest
-    expect(req.method()).toBe('PUT')
+    expect(req.method()).toBe('POST')
   })
 
   test('shows empty state when filters match nothing', async ({ page }) => {

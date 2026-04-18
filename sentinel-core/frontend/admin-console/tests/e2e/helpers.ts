@@ -126,15 +126,15 @@ export const mockAlertRoutes = async (page: Page) => {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ALERT_STATS) })
     }
 
-    if (url.includes('/acknowledge') && method === 'PUT') {
+    if (url.includes('/acknowledge') && method === 'POST') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'acknowledged' }) })
     }
 
-    if (url.includes('/resolve') && method === 'PUT') {
+    if (url.includes('/resolve') && method === 'POST') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'resolved' }) })
     }
 
-    if (url.includes('/ignore') && method === 'PUT') {
+    if (url.includes('/ignore') && method === 'POST') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ignored' }) })
     }
 
