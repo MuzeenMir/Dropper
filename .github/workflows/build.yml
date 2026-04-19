@@ -35,40 +35,40 @@ jobs:
       matrix:
         include:
           - service: ai-engine
-            context: sentinel-core/backend/ai-engine
+            context: sentinel-core/backend
             dockerfile: sentinel-core/backend/ai-engine/Dockerfile
           - service: alert-service
-            context: sentinel-core/backend/alert-service
+            context: sentinel-core/backend
             dockerfile: sentinel-core/backend/alert-service/Dockerfile
           - service: api-gateway
-            context: sentinel-core/backend/api-gateway
+            context: sentinel-core/backend
             dockerfile: sentinel-core/backend/api-gateway/Dockerfile
           - service: auth-service
-            context: sentinel-core/backend/auth-service
+            context: sentinel-core/backend
             dockerfile: sentinel-core/backend/auth-service/Dockerfile
           - service: compliance-engine
-            context: sentinel-core/backend/compliance-engine
+            context: sentinel-core/backend
             dockerfile: sentinel-core/backend/compliance-engine/Dockerfile
           - service: data-collector
-            context: sentinel-core/backend/data-collector
+            context: sentinel-core/backend
             dockerfile: sentinel-core/backend/data-collector/Dockerfile
           - service: drl-engine
-            context: sentinel-core/backend/drl-engine
+            context: sentinel-core/backend
             dockerfile: sentinel-core/backend/drl-engine/Dockerfile
           - service: hardening-service
-            context: sentinel-core/backend/hardening-service
+            context: sentinel-core/backend
             dockerfile: sentinel-core/backend/hardening-service/Dockerfile
           - service: hids-agent
-            context: sentinel-core/backend/hids-agent
+            context: sentinel-core/backend
             dockerfile: sentinel-core/backend/hids-agent/Dockerfile
           - service: policy-orchestrator
-            context: sentinel-core/backend/policy-orchestrator
+            context: sentinel-core/backend
             dockerfile: sentinel-core/backend/policy-orchestrator/Dockerfile
           - service: xai-service
-            context: sentinel-core/backend/xai-service
+            context: sentinel-core/backend
             dockerfile: sentinel-core/backend/xai-service/Dockerfile
           - service: xdp-collector
-            context: sentinel-core/backend/xdp-collector
+            context: sentinel-core/backend
             dockerfile: sentinel-core/backend/xdp-collector/Dockerfile
           - service: admin-console
             context: sentinel-core/frontend/admin-console
