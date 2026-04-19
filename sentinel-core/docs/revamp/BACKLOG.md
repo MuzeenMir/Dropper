@@ -17,6 +17,7 @@ Phase tags:
 - [P0] ci — reusable workflow composite action extraction after 8 split workflows settle. Premature before the split lands. (added 2026-04-19)
 - [P0] governance — migrate CODEOWNERS entries from `@MuzeenMir` placeholder to org-scoped teams (`@MuzeenMir/sentinel-backend`, `…-frontend`, `…-security`, `…-infra`). Blocked on org team creation. (added 2026-04-19)
 - [P0] migrations — split `20260313_001_enterprise_schema.py` into per-domain revisions if the audit shows it is doing too much. Decide during Slice 3. (added 2026-04-19)
+- [P0] migrations — schema consolidation per `docs/DB-MIGRATION-DRIFT-AUDIT.md` D-1 through D-7: rename `audit_log`→`audit_logs`, add missing core tables (alerts/threats/firewall_policies/network_logs/training_data/rl_agent_states/system_config) via a new `20260417_001_consolidate_schema.py`; SSO/SCIM/MFA tables via `20260417_002_sso_scim.py`; enable Postgres RLS via `20260417_003_enable_rls.py`; then strip `init.sql` to extensions + default tenant only and drop `db.create_all()` at service boot. Slice 3 handled *idempotency* only — this is the follow-up. (added 2026-04-19)
 
 ## Phase 1 (consolidate) — deferred items
 
