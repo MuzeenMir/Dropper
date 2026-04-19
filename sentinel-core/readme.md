@@ -1,17 +1,19 @@
-# SENTINEL Security Platform
+# SENTINEL — Core
 
-An enterprise-grade, AI-powered security platform for real-time threat detection, automated response, and compliance management.
+Security platform for server/endpoint telemetry, AI-assisted detection, policy orchestration, and compliance reporting.
 
-## Features
+> **Status:** active v1 → v2 revamp. This README describes the currently shipping v1 implementation. Target v2 architecture is in `docs/revamp/`.
 
-- **AI-Powered Threat Detection**: Ensemble ML models (XGBoost, LSTM, Isolation Forest, Autoencoder) for comprehensive threat analysis
-- **Deep Reinforcement Learning**: Automated firewall policy optimization using PPO agents
-- **Real-Time Monitoring**: High-speed packet analysis with XDP/eBPF support
-- **Explainable AI**: SHAP-based explanations for all detections
-- **Compliance Engine**: Built-in frameworks for GDPR, HIPAA, NIST CSF, PCI-DSS
-- **Modern Dashboard**: React-based admin console with real-time updates
+## Shipping today (v1)
 
-## Architecture
+- **Ensemble ML detection**: XGBoost + LSTM + Isolation Forest + Autoencoder. Accuracy figures from research; not production-benchmarked.
+- **DRL policy research prototype**: PPO agent. Demoted — no production write path, no Kubernetes role permissions.
+- **Real-time collection**: packet analysis with XDP/eBPF support (linux kernel only; build toolchain is fragile).
+- **Explainability**: SHAP explanations via `xai-service`.
+- **Compliance scaffolding**: framework stubs for GDPR / HIPAA / NIST CSF / PCI-DSS. Partial control mapping; no external certification.
+- **Admin console**: React 18 + TypeScript + Vite.
+
+## Architecture (current)
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -40,139 +42,127 @@ An enterprise-grade, AI-powered security platform for real-time threat detection
       └──────────┘          └─────────┘          └─────────┘
 ```
 
-## Quick Start
+**v2 target:** 11 services collapse to 4 (`console`, `controller`, `analyzer`, `collector`) plus `llm-gateway`. See `docs/revamp/SDD-002.md`.
+
+## Quick start
 
 ### Prerequisites
 
 - Docker & Docker Compose v2+
-- Node.js 18+ (for local frontend development)
-- Python 3.10+ (for local backend development)
+- Node.js 18+ (frontend dev)
+- Python 3.10+ (backend dev; Phase 2 moves to 3.12+)
 
-### Development Setup
+### Dev setup
 
-1. **Clone and configure:**
 ```bash
-cd sentinel-core
-cp .env.example .env
-# Edit .env with your configuration
-```
-
-2. **Start all services:**
-```bash
+cp .env.example .env   # edit before start
 docker compose up -d
 ```
 
-3. **Access the platform:**
-- Admin Console: http://localhost:3000
-- API Gateway: http://localhost:8080
-- API Documentation: http://localhost:8080/docs
+Access:
+- Admin console: http://localhost:3000
+- API gateway: http://localhost:8080
+- API docs: http://localhost:8080/docs
 
-### Default Credentials
+Initial admin credentials are set via `.env` (`ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_EMAIL`).
 
-Set in your `.env` file:
-- Username: `ADMIN_USERNAME`
-- Password: `ADMIN_PASSWORD`
-
-## Project Structure
+## Project structure
 
 ```
 sentinel-core/
 ├── backend/
-│   ├── ai-engine/          # ML threat detection service
-│   ├── alert-service/      # Alert management & notifications
-│   ├── api-gateway/        # Central API gateway
-│   ├── auth-service/       # Authentication & authorization
-│   ├── compliance-engine/  # Compliance frameworks
-│   ├── data-collector/     # Network data ingestion
-│   ├── drl-engine/         # Deep RL policy optimization
-│   ├── policy-orchestrator/# Firewall policy management
-│   ├── xai-service/        # Explainable AI service
-│   └── xdp-collector/      # High-speed XDP collection
-├── frontend/
-│   └── admin-console/      # React admin dashboard
-├── infrastructure/
-│   └── terraform/          # AWS infrastructure as code
-├── stream-processing/
-│   └── flink-jobs/         # Apache Flink stream processing
-├── docs/                   # Documentation and specifications index
-├── docker-compose.yml      # Container orchestration
-└── init.sql                # Database schema
+│   ├── ai-engine/          # ML detection
+│   ├── alert-service/
+│   ├── api-gateway/
+│   ├── auth-service/
+│   ├── compliance-engine/  # framework scaffolding
+│   ├── data-collector/
+│   ├── drl-engine/         # research prototype (demoted)
+│   ├── policy-orchestrator/
+│   ├── xai-service/        # SHAP
+│   └── xdp-collector/      # eBPF/XDP
+├── frontend/admin-console/
+├── infrastructure/terraform/
+├── stream-processing/flink-jobs/
+├── docs/
+│   ├── revamp/             # v2 SRS/SDD/SDP + GIT-RESTRUCTURE
+│   └── adr/                # architecture decisions
+├── docker-compose.yml
+└── init.sql
 ```
 
-For the complete specification document suite, see [docs/SPECIFICATIONS.md](docs/SPECIFICATIONS.md). Quick references: [docs/security.md](docs/security.md), [docs/api-reference.md](docs/api-reference.md), [docs/ml-models.md](docs/ml-models.md).
+Full spec index: [`docs/SPECIFICATIONS.md`](docs/SPECIFICATIONS.md). Quick refs: [`docs/security.md`](docs/security.md), [`docs/api-reference.md`](docs/api-reference.md), [`docs/ml-models.md`](docs/ml-models.md).
 
-## API Endpoints
+## API (v1, subject to change in v2)
 
 ### Authentication
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/auth/login` | User login |
-| POST | `/api/v1/auth/logout` | User logout |
+|---|---|---|
+| POST | `/api/v1/auth/login` | Login |
+| POST | `/api/v1/auth/logout` | Logout |
 | POST | `/api/v1/auth/refresh` | Refresh token |
-| GET | `/api/v1/auth/profile` | Get current user |
+| GET | `/api/v1/auth/profile` | Current user |
 
 ### Threats
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/threats` | List threats |
-| GET | `/api/v1/threats/:id` | Get threat details |
-| PUT | `/api/v1/threats/:id/status` | Update threat status |
+|---|---|---|
+| GET | `/api/v1/threats` | List |
+| GET | `/api/v1/threats/:id` | Detail |
+| PUT | `/api/v1/threats/:id/status` | Update status |
 
 ### Policies
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/policies` | List firewall policies |
-| POST | `/api/v1/policies` | Create policy |
-| PUT | `/api/v1/policies/:id` | Update policy |
-| DELETE | `/api/v1/policies/:id` | Delete policy |
+|---|---|---|
+| GET | `/api/v1/policies` | List |
+| POST | `/api/v1/policies` | Create |
+| PUT | `/api/v1/policies/:id` | Update |
+| DELETE | `/api/v1/policies/:id` | Delete |
 
 ### Alerts
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/alerts` | List alerts |
-| POST | `/api/v1/alerts` | Create alert |
-| POST | `/api/v1/alerts/:id/acknowledge` | Acknowledge alert |
-| POST | `/api/v1/alerts/:id/resolve` | Resolve alert |
+|---|---|---|
+| GET | `/api/v1/alerts` | List |
+| POST | `/api/v1/alerts` | Create |
+| POST | `/api/v1/alerts/:id/acknowledge` | Ack |
+| POST | `/api/v1/alerts/:id/resolve` | Resolve |
+
+v2 contracts pin these specs under `tests/contract/` (Phase 1).
 
 ## Configuration
 
-### Environment Variables
-
-See `.env.example` for all available configuration options. Key variables:
+See `.env.example`. Key variables:
 
 | Variable | Description | Required |
-|----------|-------------|----------|
-| `JWT_SECRET_KEY` | Secret key for JWT tokens | Yes |
-| `POSTGRES_PASSWORD` | Database password | Yes |
-| `ADMIN_USERNAME` | Initial admin username | Yes |
+|---|---|---|
+| `JWT_SECRET_KEY` | JWT signing key | Yes |
+| `POSTGRES_PASSWORD` | DB password | Yes |
+| `ADMIN_USERNAME` | Initial admin | Yes |
 | `ADMIN_PASSWORD` | Initial admin password | Yes |
 | `ADMIN_EMAIL` | Initial admin email | Yes |
 
-### Production Deployment
+### Production deployment
 
-For production deployments:
+Infrastructure is **scaffolded, not production-validated**. Before running in prod:
 
-1. **Use secure passwords**: Generate strong passwords for all services
-2. **Enable TLS**: Configure SSL certificates for all external endpoints
-3. **Set up backups**: Configure database and Redis backups
-4. **Monitor services**: Set up CloudWatch/Prometheus monitoring
-5. **Use secrets management**: Integrate with AWS Secrets Manager or HashiCorp Vault
+1. Generate strong passwords for every service.
+2. Terminate TLS at an external load balancer.
+3. Configure DB and Redis backups.
+4. Wire real secrets management (AWS Secrets Manager or Vault).
+5. Observability: OTel pilot lives in `api-gateway` (Phase 0); broad rollout is Phase 1.
 
 ## Development
 
-### Backend Services
-
-Each backend service is a Python Flask application:
+### Backend services
 
 ```bash
 cd backend/auth-service
 python -m venv venv
-source venv/bin/activate  # or `venv\Scripts\activate` on Windows
+source venv/bin/activate     # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
 ```
 
-### Frontend Development
+### Frontend
 
 ```bash
 cd frontend/admin-console
@@ -180,57 +170,38 @@ npm install
 npm run dev
 ```
 
-### Running Tests
+### Tests
 
 ```bash
-# Backend tests
-cd backend/auth-service
-pytest
+# Backend
+cd backend/auth-service && pytest
 
-# Frontend tests
-cd frontend/admin-console
-npm run test
+# Frontend
+cd frontend/admin-console && npm run test
 ```
 
 ## Infrastructure
 
-### AWS Deployment
-
-Deploy to AWS using Terraform:
+Terraform modules target AWS (VPC, RDS Postgres Multi-AZ, ElastiCache Redis, MSK Kafka, ECS/EKS). Applying these to a new account has not been validated end-to-end.
 
 ```bash
 cd infrastructure/terraform
 cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your configuration
-
 terraform init
 terraform plan
 terraform apply
 ```
 
-### Required AWS Resources
+## Security
 
-- VPC with public/private subnets
-- RDS PostgreSQL (Multi-AZ for production)
-- ElastiCache Redis
-- MSK Kafka cluster
-- ECS/EKS for container orchestration
-- Application Load Balancer
-- SageMaker endpoints (optional, for ML inference)
+- Sensitive data encrypted in transit and at rest where the backing store supports it.
+- JWT with short TTL and refresh.
+- Rate limiting at the API gateway.
+- RBAC enforced at the auth service.
+- Audit logging via `backend/audit_logger.py` (v2 moves this into a Postgres-role-enforced append-only table).
 
-## Security Considerations
-
-- All sensitive data is encrypted at rest and in transit
-- JWT tokens with short expiration and refresh mechanism
-- Rate limiting on all API endpoints
-- Role-based access control (RBAC)
-- Audit logging for all actions
-- Password strength requirements enforced
+**Known gaps** (driving v2): no production-grade multi-tenancy, LLM-assisted triage not shipped, SOC2 not certified, SBOM + image signing not in CI.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
-
-## Support
-
-For enterprise support and custom deployments, contact: support@sentinel.io
+MIT — see [`../LICENSE`](../LICENSE).

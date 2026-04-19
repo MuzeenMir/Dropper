@@ -1,56 +1,77 @@
 # SENTINEL
 
-## Scope and need
+Server and endpoint security platform: telemetry collection, AI-assisted detection, policy orchestration, and compliance reporting. Deployed via Docker Compose (dev) or Terraform/AWS (infra scaffolded, not production-validated).
 
-SENTINEL is an enterprise-grade security platform for real-time threat detection, automated response, and compliance management. It targets organizations and individuals who want to move from a default installation to a hardened, monitored environment.
+> **Status:** active development. This repository is mid-revamp (v1 → v2). Claims below describe what currently ships. Target architecture and timeline live in `sentinel-core/docs/revamp/`. An April 2026 audit (`CODE-REVIEW-main-2026-04-18.md`) drives the v2 plan.
 
-Rising cyber threats, skills shortages, and compliance burdens create demand for an integrated platform that detects threats, suggests or applies controls, and supports audit and compliance.
+## What ships today (v1)
 
-## Problem it solves
+- **Backend microservices** (Flask, Python): auth, API gateway, alert, AI engine, XAI, data collector, policy orchestrator, compliance engine, DRL engine (demoted to research), hardening service.
+- **Admin console** (React 18 + TypeScript + Vite): dashboard, policy and alert views.
+- **Stream processing**: Apache Flink jobs over Kafka.
+- **ML detection**: XGBoost, LSTM, Isolation Forest, Autoencoder ensemble. Accuracy numbers are research-grade, not production benchmarks.
+- **Explainability**: SHAP integration via XAI service.
+- **Compliance engine**: framework scaffolding for GDPR / HIPAA / NIST CSF / PCI-DSS. Control mapping is partial; no external certification.
+- **Infrastructure**: Terraform modules for AWS (VPC, RDS, ElastiCache, MSK). Not deployed or validated end-to-end in production.
 
-- **Threats**: Known and emerging threats require continuous monitoring and fast response; many environments lack the visibility and tooling to respond in time.
-- **Operations**: Manual firewall and policy management does not scale; slow or inconsistent response increases risk and operator fatigue.
-- **Compliance**: Multiple frameworks (e.g. GDPR, HIPAA, PCI-DSS, NIST) require evidence and consistent controls; fragmented tools make this harder and more error-prone.
-- **Visibility**: Lack of a single view of threats, policies, and compliance status makes it difficult to prioritize and act.
+## What does not yet ship (deferred to v2)
 
-## Why SENTINEL
+- Real multi-tenant isolation with Postgres RLS.
+- LLM-assisted triage (llm-gateway is a Phase 1 shell returning `HTTP 410`).
+- Consolidated services (11 → 4 + llm-gateway is a v2 goal).
+- SSO / SCIM, billing, SOC2 certification.
+- Helm charts and Kubernetes production deploy.
+- SBOM + cosign signed releases (Phase 0 in progress).
+- Signed, append-only audit at the Postgres role level.
 
-- **Unified platform**: One place for detection, policy, compliance, and visibility instead of disconnected tools.
-- **Automation**: Automated detection and policy decisions reduce manual work and shorten response time.
-- **Explainability**: Decisions and detections can be explained for audit and trust.
-- **Compliance**: Built-in support for major regulatory and standards frameworks.
-- **Real-time**: Continuous monitoring and prompt response to changing conditions.
+## Quick start (dev)
 
-## Methodologies
+```bash
+cd sentinel-core
+cp .env.example .env           # edit before starting
+docker compose up -d
+```
 
-- **AI/ML for detection**: Machine learning is used to identify threats and anomalies.
-- **Automated policy optimization**: Logic that improves defensive policies over time based on context and outcomes.
-- **Compliance-by-design**: Frameworks and controls aligned to common standards.
-- **Explainability and audit**: Transparent reasoning and audit trails for decisions.
-- **Security principles**: Defense-in-depth and least-privilege, zero-trust style posture throughout the platform.
+Typical URLs (dev compose):
 
-## How it can be used
+- Admin console: http://localhost:3000
+- API gateway: http://localhost:8080
+- API docs: http://localhost:8080/docs
 
-- **Businesses**: Secure servers and networks (on-premises or in the cloud), maintain compliance, and use a single dashboard for threats and policies.
-- **Individuals and small setups**: Harden new or existing servers and get visibility and automated response without deep security expertise.
-- **Deployment**: The platform can be deployed on your own infrastructure or in the cloud and is managed through a web-based interface.
+Initial admin credentials are set via `ADMIN_USERNAME` / `ADMIN_PASSWORD` / `ADMIN_EMAIL` in `.env`.
 
-## Security benefits for individuals and businesses
+## Repository layout
 
-- **Detection and response**: Continuous monitoring and automated or guided response to reduce exposure and dwell time.
-- **Hardening**: Helps move systems from a default install to a hardened state.
-- **Access control**: Role-based access and strong authentication so only authorized users manage security.
-- **Data protection**: Encryption in transit and at rest for sensitive data.
-- **Audit and accountability**: Logging and explanations for actions and decisions to support compliance and forensics.
-- **Operational security**: Rate limiting, secure configuration, and secure deployment practices.
+```
+sentinel-core/
+├── backend/                    # Flask microservices
+├── frontend/admin-console/     # React + Vite admin UI
+├── stream-processing/          # Flink jobs
+├── training/                   # ML / DRL training scripts
+├── infrastructure/terraform/   # AWS Terraform (scaffolded)
+├── docs/                       # Quick refs + specifications index
+│   └── revamp/                 # v2 design docs (SRS/SDD/SDP, GIT-RESTRUCTURE, ADRs)
+├── tests/                      # Integration + e2e
+└── docker-compose.yml
+```
 
-## Architecture at a glance
-
-A web-based management interface connects to a central API. Behind it, detection and policy engines process ingested data and drive enforcement, with supporting storage and optional stream processing for high-volume environments.
+A git-flatten of `sentinel-core/` → repo root is scheduled in Phase 0 of the revamp. After that lands, these paths move up one level.
 
 ## Documentation
 
-- **Quick start and overview**: `sentinel-core/readme.md`
-- **Specification documents** (SRS, SDD, SAD, STP, SDP, Deployment/Ops, Security Architecture, API Spec): See `sentinel-core/docs/SPECIFICATIONS.md` for the full index. Specification docs are maintained out-of-band; request from the project lead.
-- **Quick references** (tracked in repo): `sentinel-core/docs/security.md`, `sentinel-core/docs/api-reference.md`, `sentinel-core/docs/ml-models.md`
-- **Training pipeline**: `sentinel-core/training/README.md`
+- **Specification index**: `sentinel-core/docs/SPECIFICATIONS.md`
+- **Quick refs**: `sentinel-core/docs/security.md`, `sentinel-core/docs/api-reference.md`, `sentinel-core/docs/ml-models.md`
+- **Overview**: `sentinel-core/readme.md`
+- **v2 revamp**: `sentinel-core/docs/revamp/README.md` and siblings
+- **ADRs**: `sentinel-core/docs/adr/`
+- **Backlog**: `sentinel-core/docs/revamp/BACKLOG.md`
+
+## Contributing
+
+- Conventional Commits required (`commitlint.config.js`). Scopes include `collector | analyzer | controller | console | agent | llm-gateway | revamp | opa | helm | ci | docs | migrations | deps`.
+- Pre-commit hooks via `.pre-commit-config.yaml`. Install with `pre-commit install`.
+- `CODEOWNERS` gates review. Squash-merge only; signed commits required on `main`.
+
+## License
+
+MIT — see `LICENSE`.

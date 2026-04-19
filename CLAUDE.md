@@ -1,10 +1,35 @@
 # SENTINEL — Claude Code project context
 
-Use this file for Claude Code sessions in this repository. Primary application code lives under **`sentinel-core/`** (not the repo root alone).
+Use this file for Claude Code sessions in this repository. Primary application code lives under **`sentinel-core/`** (not the repo root alone — flatten to root is a Phase 0 task, see below).
+
+## SENTINEL v2 Revamp — Active Phases
+
+**Reference:** `sentinel-core/docs/revamp/` (README, SRS-002, SDD-002, SDP-002, GIT-RESTRUCTURE, CLAUDE-DESIGN-WORKFLOW). Driver: `CODE-REVIEW-main-2026-04-18.md` audit — v1 is ~60% real, ~40% scaffolding; chronic CI failures, schema drift, marketing-grade claims.
+
+**Architecture target:** 11 services → 4 + LLM Gateway
+- `console` ← api-gateway + auth-service + dashboard
+- `controller` ← alert-service + policy-orchestrator (read) + audit
+- `analyzer` ← ai-engine + xai-service + Bytewax stream
+- `collector` ← data-collector + agent-grpc + sensor skeletons (Falco/Suricata/Wazuh/OpenSCAP)
+- `llm-gateway` ← new (Gemma 4, TurboQuant); Phase 1 = shell returning 410
+
+**Phase 0 (4 wks, active):** stabilize — 8 split CI workflows, idempotent migrations, honest README, secrets sweep, SBOM+cosign, OTel pilot, git flatten `sentinel-core/`→root, CODEOWNERS, commitlint, trunk-based. Exit: 7 consecutive green days on `main`.
+
+**Phase 1 (8 wks, blocked on Phase 0):** consolidate behind `USE_V2_*` JWT flags — shared `backend/_lib/` (cim, tenancy, otel, audit, llm_client), Helm scaffold, PG16 + pgvector + RLS, Kafka 3 per-tenant topics, Redis 7, Tempo. Exit: `sentinel-internal` canary runs 14 days on v2 with zero P0/P1 regressions.
+
+**Hard constraints:**
+- No LLM output reaches enforcement adapters — write actions require human approval.
+- Audit log is append-only at the Postgres role level (not app code).
+- DRL demoted to research; no Kubernetes role permissions.
+- Python 3.12+ backend, FastAPI (Flask sunset by Phase 2); TypeScript 5.x strict, React 18.
+- Conventional Commits mandatory; squash-merge only; signed commits on `main`.
+- Two-person rule for OPA bundles, model promotions, Helm prod values, RLS policies, audit schemas.
+
+**Do not (Phase 0/1):** decommission v1 services, remove compliance-engine, touch drl-engine beyond archival, or land real LLM inference (that's Phase 2+).
 
 ## What this is
 
-SENTINEL is an enterprise-grade, AI-powered security platform: real-time threat detection, automated response, DRL-driven policy, compliance, and hardening. The product goal is to move a server from a default install toward a hardened, monitored posture—security-first, least privilege, auditable behavior.
+SENTINEL is a server/endpoint security platform: telemetry collection, AI-assisted detection, policy orchestration, and compliance reporting. **Current shipping scope (v1):** Flask microservices, React admin console, Kafka/Flink stream processing, ML-based anomaly detection, DRL policy prototype (demoted), Terraform AWS deployment. Marketing-grade claims ("enterprise-grade", production-ready compliance) are **not** accurate for v1 — they describe the v2 target.
 
 ## Repository layout
 
