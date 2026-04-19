@@ -13,7 +13,7 @@ import redis
 import json
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from observability import configure_logging
+from observability import configure_logging, init_telemetry
 from metrics import init_metrics
 from audit_logger import query_audit_log, get_audit_stats, verify_integrity, AuditCategory
 
@@ -21,6 +21,8 @@ from audit_logger import query_audit_log, get_audit_stats, verify_integrity, Aud
 app = Flask(__name__)
 CORS(app)
 configure_logging(service_name="api-gateway")
+# Phase 0 slice 5 — OTel pilot. No-op when OTEL_EXPORTER_OTLP_ENDPOINT unset.
+init_telemetry(app, service_name="api-gateway")
 init_metrics(app, service_name="api-gateway")
 
 # Configuration

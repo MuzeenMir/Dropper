@@ -139,6 +139,11 @@ services:
       - HARDENING_SERVICE_URL=http://hardening-service:5011
       - HIDS_AGENT_URL=http://hids-agent:5010
       - REDIS_URL=redis://redis:6379
+      # Phase 0 slice 5 — OTel pilot. Empty = telemetry disabled (no-op).
+      # Set to `http://tempo:4317` (or an OTLP collector) to enable. Start the
+      # `observability` profile locally: `docker compose --profile observability up`.
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_SERVICE_NAME=api-gateway
     depends_on:
       - auth-service
       - data-collector
@@ -477,6 +482,26 @@ services:
       - sentinel-network
     restart: unless-stopped
 
+  # Tempo — distributed tracing backend. Phase 0 slice 5 pilot.
+  # Opt-in profile so the default `docker compose up` stays lightweight.
+  # Enable with: `docker compose --profile observability up -d tempo`
+  # then export OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4317 before restarting
+  # the api-gateway container.
+  tempo:
+    image: grafana/tempo:2.5.0
+    container_name: sentinel-tempo
+    profiles: ["observability"]
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    ports:
+      - "3200:3200"   # Tempo HTTP (queries)
+      - "4317:4317"   # OTLP gRPC receiver
+    volumes:
+      - ./observability/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo_data:/var/tempo
+    networks:
+      - sentinel-network
+    restart: unless-stopped
+
   # ── Flink Stream Processing Jobs ──────────────────────────────────────────
 
   flink-anomaly-detection:
@@ -548,3 +573,4 @@ volumes:
   hardening_backups:
   prometheus_data:
   grafana_data:
+  tempo_data:
