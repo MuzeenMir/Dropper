@@ -109,14 +109,25 @@ jobs:
           echo "image=${IMAGE}@${DIGEST}" >> "$GITHUB_OUTPUT"
           echo "image_plain=${IMAGE}" >> "$GITHUB_OUTPUT"
           echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+            | sh -s -- -b /usr/local/bin v1.14.0
       - name: Syft SBOM (SPDX JSON)
-        uses: anchore/sbom-action@v0
+        # Invoke syft directly. The anchore/sbom-action@v0 does not reliably
+        # pick up the docker/login-action credentials for ghcr.io pulls of
+        # private packages; `syft` CLI honors ~/.docker/config.json written
+        # by docker/login-action.
+        run: |
+          syft scan \
+            "registry:${{ steps.ref.outputs.image }}" \
+            -o spdx-json="sbom-${{ matrix.service }}.spdx.json"
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
         with:
-          image: ${{ steps.ref.outputs.image }}
-          format: spdx-json
-          output-file: sbom-${{ matrix.service }}.spdx.json
-          upload-artifact: true
-          upload-artifact-retention: 90
+          name: sbom-${{ matrix.service }}
+          path: sbom-${{ matrix.service }}.spdx.json
+          retention-days: 90
       - name: Cosign sign image (keyless OIDC via Fulcio)
         env:
           COSIGN_EXPERIMENTAL: '1'

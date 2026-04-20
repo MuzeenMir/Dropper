@@ -296,13 +296,17 @@ def auth_proxy(path):
     # Path segment reaches only the auth service per /api/v1/auth/ route prefix.
     try:
         if request.method == "GET":
-            response = requests.get(auth_url, params=request.args)  # nosemgrep: ssrf-requests
+            # nosemgrep: ssrf-requests
+            response = requests.get(auth_url, params=request.args)
         elif request.method == "POST":
-            response = requests.post(auth_url, json=request.json)  # nosemgrep: ssrf-requests
+            # nosemgrep: ssrf-requests
+            response = requests.post(auth_url, json=request.json)
         elif request.method == "PUT":
-            response = requests.put(auth_url, json=request.json)  # nosemgrep: ssrf-requests
+            # nosemgrep: ssrf-requests
+            response = requests.put(auth_url, json=request.json)
         elif request.method == "DELETE":
-            response = requests.delete(auth_url)  # nosemgrep: ssrf-requests
+            # nosemgrep: ssrf-requests
+            response = requests.delete(auth_url)
 
         return jsonify(response.json()), response.status_code
 

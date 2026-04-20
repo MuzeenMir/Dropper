@@ -114,11 +114,14 @@ jobs:
             http://localhost:8080/api/v1/statistics
       - name: DRL shadow-mode sanity (not enforced)
         # Hard rule (SAF-1): no LLM/DRL output reaches enforcement adapters.
+        # Gateway route is /api/v1/decide (no drl/ segment); drop --fail-with-body
+        # so we capture non-200 body for debugging.
         run: |
-          DEC=$(curl -sf -H "Authorization: Bearer ${{ steps.login.outputs.token }}" \
+          set -e
+          DEC=$(curl -sS -H "Authorization: Bearer ${{ steps.login.outputs.token }}" \
             -H "Content-Type: application/json" \
-            -X POST http://localhost:8080/api/v1/drl/decide \
-            -d '{"detection_id":"smoke","threat_score":0.95,"threat_type":"brute_force","source_ip":"1.2.3.4","dest_port":22,"protocol":"TCP","asset_criticality":3}' || true)
+            -X POST http://localhost:8080/api/v1/decide \
+            -d '{"detection_id":"smoke","threat_score":0.95,"threat_type":"brute_force","source_ip":"1.2.3.4","dest_port":22,"protocol":"TCP","asset_criticality":3}')
           echo "$DEC"
           echo "$DEC" | python -c "import sys,json;d=json.load(sys.stdin);assert d.get('shadow') is True, d"
       - name: Tear down
