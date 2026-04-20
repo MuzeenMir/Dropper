@@ -104,6 +104,11 @@ def initialize_agent():
         return False
 
 
+# Initialize at module import so gunicorn workers (which never hit __main__)
+# still load the agent. Failure is logged and swallowed; /health reflects readiness.
+initialize_agent()
+
+
 @app.route("/health", methods=["GET"])
 def health_check():
     """Health check endpoint."""

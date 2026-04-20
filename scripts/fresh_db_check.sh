@@ -63,15 +63,24 @@ docker run -d --rm \
   -p "${PG_PORT}:5432" \
   "$PG_IMAGE" >/dev/null
 
-log "waiting for Postgres (timeout ${WAIT_TIMEOUT}s)"
+log "waiting for Postgres (timeout ${WAIT_TIMEOUT}s, require 3 consecutive ready checks)"
+# Postgres entrypoint on first boot starts a bootstrap server (for init scripts)
+# that briefly accepts connections, shuts down, then the real server starts.
+# A single pg_isready can catch the bootstrap and misreport readiness. Require
+# 3 consecutive successes (>=2s apart across the shutdown gap) to confirm the
+# real server is up before alembic runs.
+ready=0
 for _ in $(seq 1 "$WAIT_TIMEOUT"); do
   if docker exec "$CONTAINER" pg_isready -U "$PG_USER" -d "$PG_DB" >/dev/null 2>&1; then
-    break
+    ready=$((ready + 1))
+    [ "$ready" -ge 3 ] && break
+  else
+    ready=0
   fi
   sleep 1
 done
-if ! docker exec "$CONTAINER" pg_isready -U "$PG_USER" -d "$PG_DB" >/dev/null 2>&1; then
-  err "Postgres did not become ready in ${WAIT_TIMEOUT}s"
+if [ "$ready" -lt 3 ]; then
+  err "Postgres did not stay ready for 3 consecutive checks within ${WAIT_TIMEOUT}s"
   docker logs "$CONTAINER" | tail -50 >&2 || true
   exit 1
 fi

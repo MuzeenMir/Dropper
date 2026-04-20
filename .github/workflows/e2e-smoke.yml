@@ -124,6 +124,10 @@ jobs:
             -d '{"detection_id":"smoke","threat_score":0.95,"threat_type":"brute_force","source_ip":"1.2.3.4","dest_port":22,"protocol":"TCP","asset_criticality":3}')
           echo "$DEC"
           echo "$DEC" | python -c "import sys,json;d=json.load(sys.stdin);assert d.get('shadow') is True, d"
+      - name: Dump service logs on failure
+        if: failure()
+        run: |
+          docker compose logs --tail=200 drl-engine ai-engine policy-orchestrator alert-service api-gateway auth-service || true
       - name: Tear down
         if: always()
         run: docker compose down -v

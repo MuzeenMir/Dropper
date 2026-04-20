@@ -100,7 +100,10 @@ jobs:
       - name: Resolve image reference
         id: ref
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/sentinel-${{ matrix.service }}"
+          # OCI reference parser requires lowercase repo path; GHCR is case-
+          # insensitive but Syft's go-containerregistry parser rejects uppercase.
+          OWNER_LC="$(echo "${{ env.IMAGE_OWNER }}" | tr '[:upper:]' '[:lower:]')"
+          IMAGE="${{ env.REGISTRY }}/${OWNER_LC}/sentinel-${{ matrix.service }}"
           DIGEST="$(cat /tmp/digests/${{ matrix.service }}.digest | tr -d '[:space:]')"
           if [ -z "$DIGEST" ]; then
             echo "::error::no digest recorded for ${{ matrix.service }}"
