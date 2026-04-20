@@ -8,9 +8,10 @@ name: sbom
 # Registry creds come from GITHUB_TOKEN; Fulcio/Rekor OIDC from workflow id-token.
 
 on:
-  push:
-    branches: [main]
-    tags: ['v*']
+  # PR path: source SBOM only. Main/tag path: runs after `build` completes so
+  # the per-service digest artifacts it uploads are available to sbom-images.
+  # A direct `push:` trigger is intentionally omitted — it would race `build`
+  # and fail before digests exist.
   pull_request:
     branches: [main]
   workflow_run:
@@ -53,7 +54,10 @@ jobs:
 
   sbom-images:
     name: sbom-images
-    if: github.event_name != 'pull_request'
+    # Only run after `build` workflow_run succeeded. Skip on PR (no pushed image).
+    if: >-
+      github.event_name == 'workflow_run'
+      && github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -90,8 +94,9 @@ jobs:
         with:
           name: digest-${{ matrix.service }}
           path: /tmp/digests
-          # If build.yml did not run in this flow (e.g., schedule), fail soft.
-          # workflow_run will have access via github.event.workflow_run.
+          # Pull from the `build` run that triggered this workflow_run.
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
       - name: Resolve image reference
         id: ref
         run: |
@@ -147,7 +152,7 @@ jobs:
             if [ "${{ needs.sbom-source.result }}" != "success" ]; then
               echo "::error::sbom-source failed"; exit 1
             fi
-          else
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
             if [ "${{ needs.sbom-images.result }}" != "success" ]; then
               echo "::error::sbom-images failed"; exit 1
             fi
