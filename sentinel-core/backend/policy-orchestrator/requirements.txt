@@ -13,7 +13,7 @@ redis>=5.0.1
 
 # API Clients for firewall vendors
 requests>=2.31.0
-paramiko==3.3.1  # For SSH-based firewall management
+paramiko==3.5.1  # For SSH-based firewall management (>=3.4.0 fixes GHSA-45x7-px36-x8w8)
 boto3>=1.28.0    # For AWS Security Groups
 azure-mgmt-network>=19.0.0  # For Azure NSG
 azure-identity>=1.15.0      # For Azure auth

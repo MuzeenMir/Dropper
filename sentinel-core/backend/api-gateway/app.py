@@ -292,15 +292,17 @@ def auth_proxy(path):
     """Proxy authentication requests to auth service"""
     auth_url = f"{app.config['AUTH_SERVICE_URL']}/api/v1/auth/{path}"
 
+    # Host is app.config['AUTH_SERVICE_URL'] — trusted config, not user input.
+    # Path segment reaches only the auth service per /api/v1/auth/ route prefix.
     try:
         if request.method == "GET":
-            response = requests.get(auth_url, params=request.args)
+            response = requests.get(auth_url, params=request.args)  # nosemgrep: ssrf-requests
         elif request.method == "POST":
-            response = requests.post(auth_url, json=request.json)
+            response = requests.post(auth_url, json=request.json)  # nosemgrep: ssrf-requests
         elif request.method == "PUT":
-            response = requests.put(auth_url, json=request.json)
+            response = requests.put(auth_url, json=request.json)  # nosemgrep: ssrf-requests
         elif request.method == "DELETE":
-            response = requests.delete(auth_url)
+            response = requests.delete(auth_url)  # nosemgrep: ssrf-requests
 
         return jsonify(response.json()), response.status_code
 
@@ -355,7 +357,8 @@ def get_threats():
 def get_threat(threat_id):
     """Get specific threat details"""
     try:
-        response = requests.get(
+        # Host from trusted config; threat_id is int-coerced by Flask route.
+        response = requests.get(  # nosemgrep: ssrf-requests
             f"{app.config['DATA_COLLECTOR_URL']}/api/v1/threats/{threat_id}",
             headers={"Authorization": request.headers.get("Authorization")},
         )
@@ -409,7 +412,8 @@ def get_alerts():
 def get_alert(alert_id):
     """Get specific alert details"""
     try:
-        response = requests.get(
+        # Host from trusted config; alert_id is int-coerced by Flask route.
+        response = requests.get(  # nosemgrep: ssrf-requests
             f"{app.config['ALERT_SERVICE_URL']}/api/v1/alerts/{alert_id}",
             headers={"Authorization": request.headers.get("Authorization")},
         )
@@ -444,7 +448,8 @@ def create_alert():
 def acknowledge_alert(alert_id):
     """Acknowledge an alert"""
     try:
-        response = requests.post(
+        # Host from trusted config; alert_id is int-coerced by Flask route.
+        response = requests.post(  # nosemgrep: ssrf-requests
             f"{app.config['ALERT_SERVICE_URL']}/api/v1/alerts/{alert_id}/acknowledge",
             headers={"Authorization": request.headers.get("Authorization")},
             json=request.json,

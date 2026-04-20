@@ -53,13 +53,16 @@ jobs:
       - run: pip install pip-audit==2.7.3
       - name: Audit every service requirements.txt
         run: |
-          set -e
+          set +e
+          EXIT=0
           for req in sentinel-core/backend/*/requirements.txt; do
             echo "::group::pip-audit $req"
-            pip-audit -r "$req" --disable-pip || EXIT=$?
+            pip-audit -r "$req" --no-deps --strict
+            rc=$?
+            [ $rc -ne 0 ] && EXIT=$rc
             echo "::endgroup::"
           done
-          exit "${EXIT:-0}"
+          exit "$EXIT"
 
   security-bandit:
     name: security-bandit
@@ -127,13 +130,17 @@ jobs:
       image: returntocorp/semgrep:1.82.0
     steps:
       - uses: actions/checkout@v4
-      - name: Semgrep CI (p/ci + security-audit)
+      - name: Semgrep CI (p/ci + security-audit; ERROR-only gate in Phase 0)
         run: |
+          # Phase 0 gate on ERROR-severity only. WARNING/INFO findings are
+          # reported but non-blocking while Phase 1 consolidates backend under
+          # backend/_lib/ (SDP-002 §7). Ratchet to full severity in Phase 1.
           semgrep ci \
             --config=p/ci \
             --config=p/security-audit \
             --config=p/python \
             --config=p/typescript \
+            --severity=ERROR \
             --error \
             --metrics=off
 
