@@ -108,3 +108,6 @@ CLAUDE.local.md
 .cursor-sync/sync-config.json
 # Note: .cursor-sync/agent-transcripts/ is versioned (intentional)
 sentinel-core/backend/.test-venv/
+
+# Caveman compress backups
+*.original.md
