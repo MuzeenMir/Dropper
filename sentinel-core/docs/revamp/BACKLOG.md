@@ -37,6 +37,32 @@ Phase tags:
 - [P3] compliance — SOC2 Type II audit. Prerequisite: audit hash-chain and RLS evidence. (added 2026-04-19)
 - [P6] compliance — decommission v1 `compliance-engine` after v2 replacement has certification. (added 2026-04-19)
 
+## Pivot (post-MVP) — deferred items
+
+Source: `~/.gstack/projects/MuzeenMir-sentinel/ceo-plans/2026-04-24-pivot-transition.md`. When v2 revamp/ archives in week 2, move these to `docs/PIVOT-BACKLOG.md` at repo root.
+
+- [Pivot-W5+] sdk — Node SDK (OpenAI + Anthropic wrap). Python-only proves MVP; Node when first JS-shop design partner asks. (added 2026-04-24)
+- [Pivot-W5+] benchmark — Datadog + Wiz competitor runners in sentinel-agent-bench repo. Splunk-only proves the point for Show HN; broader coverage later. (added 2026-04-24)
+- [Pivot-W5+] infra — one-command Fly.io self-host CLI (Postgres provisioning + secret gen + API-key bootstrap UX). Week 3-4 ships 5-command documented path; true CLI post-MVP. (added 2026-04-24)
+- [Pivot-M2] sdk — LangChain wrap. Order 3 in design-doc framework support; lands once Python + Node core proven. (added 2026-04-24)
+- [Pivot-M2] detection — prompt-injection chain rule. Requires prompt + tool call correlation; design-doc differentiation rule #3. (added 2026-04-24)
+- [Pivot-M2] detection — recursive tool-loop cost rule. Requires call-sequence + cost-per-call linkage; differentiation rule #2. (added 2026-04-24)
+- [Pivot-M3] ml — re-apply ai-engine anomaly code on real agent traces once 3 design partners produce sufficient volume. ML does not transfer from endpoint to agent data per design doc. (added 2026-04-24)
+- [Pivot-M6] compliance — SOC2 Type 1 audit. Prerequisite: RLS + audit hash-chain. (added 2026-04-24)
+- [Pivot-M12] compliance — SOC2 Type 2 audit. Prerequisite: Type 1 + 6-month operating window. (added 2026-04-24)
+- [Pivot-P3] enterprise — multi-tenant RLS + SSO (SAML + OIDC) + billing. (added 2026-04-24)
+- [Pivot-P3] ux — block-rule UI in trace viewer. MVP is read-only. (added 2026-04-24)
+- [Pivot-P3] billing — per-call micro-billing. MVP is flat SaaS tiers. (added 2026-04-24)
+- [Pivot-P3] infra — EU region deploy. Defer until first EU customer. (added 2026-04-24)
+- [Pivot-P6] compliance — successor to v1 compliance-engine (which is being killed in week 2). Revisit after SOC2 Type 2. (added 2026-04-24)
+
+## Archived (v2 revamp, deferred indefinitely as of 2026-04-24 pivot)
+
+Per `ceo-plans/2026-04-24-pivot-transition.md` — entire v2 11-service consolidation plan (SRS-002 / SDD-002 / SDP-002) is deferred indefinitely. When week 2 demolition lands, the revamp/ directory moves to docs/archive/v2-revamp/ and these docs become historical record only. Items below remain referenced but not scheduled:
+
+- All Phase 1 consolidate items (console/controller/analyzer/collector/llm-gateway shell) above.
+- All Phase 2+ sensor migration, compliance-engine decommission, enterprise GA items above.
+
 ## Unassigned
 
 - [P?] drl-engine — long-term fate post-archival. Research track or full removal? Decide after Phase 2. (added 2026-04-19)
