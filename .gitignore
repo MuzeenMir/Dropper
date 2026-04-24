@@ -111,3 +111,10 @@ sentinel-core/backend/.test-venv/
 
 # Caveman compress backups
 *.original.md
+
+# Claude Code — user-local settings + skill-manager experiments
+# (settings.local.json is per-machine; .agents/ and skills-lock.json belong to
+# an experimental skill manager separate from gstack — not committed yet).
+.claude/
+.agents/
+skills-lock.json
