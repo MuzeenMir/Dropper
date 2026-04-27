@@ -4,6 +4,8 @@ Server and endpoint security platform: telemetry collection, AI-assisted detecti
 
 > **Status:** active development. This repository is mid-revamp (v1 → v2). Claims below describe what currently ships. Target architecture and timeline live in `sentinel-core/docs/revamp/`. An April 2026 audit (`CODE-REVIEW-main-2026-04-18.md`) drives the v2 plan.
 
+> **v1 archive notice (2026-04-27):** the v1 Flask/Python codebase under `sentinel-core/` is **frozen** as of commit `f15b62d6` and will be removed from `main` in a follow-up PR. The full v1+v2 history is preserved on the [`archive/v1-python`](https://github.com/MuzeenMir/sentinel/tree/archive/v1-python) branch — `git checkout archive/v1-python` to inspect, mine patterns, or revisit audit-service / llm-gateway design notes. Active work shifts to a Rust skeleton aligned with the v2 target architecture (4 services + LLM Gateway). See `TODOS.md` T1–T3 for the slicing plan.
+
 ## What ships today (v1)
 
 - **Backend microservices** (Flask, Python): auth, API gateway, alert, AI engine, XAI, data collector, policy orchestrator, compliance engine, DRL engine (demoted to research), hardening service.
