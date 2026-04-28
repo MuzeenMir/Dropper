@@ -26,6 +26,18 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 # http1, tokio runtime integration).
 axum = { version = "0.8", default-features = false, features = ["form", "http1", "tokio"] }
 serde = { version = "1.0", features = ["derive"] }
+# Local DNS resolver: hickory-server runs the UDP+TCP listener on
+# 127.0.0.1:53, hickory-resolver forwards non-blocked queries to
+# upstream (Cloudflare 1.1.1.1, Quad9 9.9.9.9 failover). hickory-proto
+# pulls in the record/message types for building sinkhole responses.
+hickory-server = "0.24"
+hickory-resolver = "0.24"
+hickory-proto = "0.24"
+async-trait = "0.1"
+# RFC 3339 timestamps for the block-page `ts_iso` field. `time` is
+# leaner than `chrono` and we already depend on it transitively via
+# hickory.
+time = { version = "0.3", default-features = false, features = ["formatting", "std"] }
 
 [dev-dependencies]
 # tower::ServiceExt::oneshot lets the router tests hit the in-process axum
