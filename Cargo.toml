@@ -18,7 +18,7 @@ path = "src/lib.rs"
 
 [dependencies]
 anyhow = "1.0"
-tokio = { version = "1.41", features = ["rt-multi-thread", "macros", "net", "sync"] }
+tokio = { version = "1.41", features = ["rt-multi-thread", "macros", "net", "sync", "time"] }
 # rustls-tls keeps the build portable on Windows + Linux CI without OpenSSL.
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 # Block-page server: axum on 127.0.0.1, default features off so we only pull

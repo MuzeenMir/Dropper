@@ -8,7 +8,7 @@ use std::process::ExitCode;
 
 use anyhow::Result;
 use sentinel::blockpage::AppState;
-use sentinel::feed::new_blocklist;
+use sentinel::feed::{new_blocklist, run_urlhaus_refresher};
 use sentinel::resolver::{self, Resolver};
 
 fn main() -> ExitCode {
@@ -66,12 +66,16 @@ fn run_service() -> Result<()> {
 
         let resolver = Resolver::new(blocklist.clone(), blockpage.clone());
 
-        // Both tasks should run for the lifetime of the process. If
-        // either returns we propagate so the supervisor (Windows
-        // service / systemd / installer) knows to restart.
+        // All three tasks should run for the lifetime of the process. If
+        // any returns we propagate so the supervisor (Windows service /
+        // systemd / installer) knows to restart.
         let resolver_task = tokio::spawn(async move { resolver::serve(resolver).await });
         let blockpage_task =
             tokio::spawn(async move { sentinel::blockpage::serve(blockpage).await });
+        let refresher_task = {
+            let blocklist = blocklist.clone();
+            tokio::spawn(async move { run_urlhaus_refresher(blocklist).await })
+        };
 
         tokio::select! {
             r = resolver_task => match r {
@@ -81,6 +85,10 @@ fn run_service() -> Result<()> {
             r = blockpage_task => match r {
                 Ok(inner) => inner,
                 Err(e) => Err(anyhow::anyhow!("blockpage task panicked: {e}")),
+            },
+            r = refresher_task => match r {
+                Ok(inner) => inner,
+                Err(e) => Err(anyhow::anyhow!("urlhaus refresher task panicked: {e}")),
             },
         }
     })
