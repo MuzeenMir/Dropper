@@ -8,7 +8,19 @@ pub mod urlhaus;
 
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::RwLock;
+use tokio::time::sleep;
+
+/// Steady-state URLhaus refresh cadence. URLhaus is updated continuously
+/// upstream; six hours keeps the local list fresh without hammering the
+/// feed.
+const URLHAUS_REFRESH_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
+
+/// Retry cadence after a failed fetch. Far shorter than the steady-state
+/// interval so a transient first-boot network hiccup doesn't leave the
+/// resolver running with an empty blocklist for hours.
+const URLHAUS_RETRY_AFTER_FAILURE: Duration = Duration::from_secs(5 * 60);
 
 /// Shared, reader-friendly blocklist. Cheap to clone — wraps an `Arc`.
 ///
@@ -30,6 +42,38 @@ pub async fn refresh_urlhaus(blocklist: &BlockList) -> anyhow::Result<usize> {
     let mut guard = blocklist.write().await;
     *guard = domains;
     Ok(count)
+}
+
+/// Long-running URLhaus refresher loop. Refreshes on entry, then sleeps
+/// `URLHAUS_REFRESH_INTERVAL` between successful cycles and
+/// `URLHAUS_RETRY_AFTER_FAILURE` between failed ones.
+///
+/// Fail-open: if URLhaus is unreachable the blocklist stays at its last
+/// known contents (empty on first boot) and every domain forwards to
+/// upstream. We log the failure but never propagate it — "nothing
+/// blocked yet" beats "DNS service refused to start because of an ISP
+/// hiccup at install time."
+///
+/// `Ok(())` is unreachable in practice — the loop runs for the lifetime
+/// of the process. The `Result<()>` shape matches the resolver /
+/// blockpage tasks so the supervising `tokio::select!` can treat all
+/// three uniformly.
+pub async fn run_urlhaus_refresher(blocklist: BlockList) -> anyhow::Result<()> {
+    loop {
+        match refresh_urlhaus(&blocklist).await {
+            Ok(count) => {
+                eprintln!("urlhaus: loaded {count} domains");
+                sleep(URLHAUS_REFRESH_INTERVAL).await;
+            }
+            Err(e) => {
+                eprintln!(
+                    "urlhaus: refresh failed: {e:#}; retrying in {:?}",
+                    URLHAUS_RETRY_AFTER_FAILURE
+                );
+                sleep(URLHAUS_RETRY_AFTER_FAILURE).await;
+            }
+        }
+    }
 }
 
 /// Look `domain` up in `blocklist`. Domains are normalized to lowercase
