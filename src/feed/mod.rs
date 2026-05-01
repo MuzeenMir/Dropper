@@ -22,6 +22,17 @@ const URLHAUS_REFRESH_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
 /// resolver running with an empty blocklist for hours.
 const URLHAUS_RETRY_AFTER_FAILURE: Duration = Duration::from_secs(5 * 60);
 
+/// Tranco shifts slowly — the top 10k popularity ranking moves on the
+/// scale of weeks-to-months, not hours. Quarterly is conservative and
+/// keeps the allowlist honest over a multi-year installed lifetime.
+const TRANCO_REFRESH_INTERVAL: Duration = Duration::from_secs(90 * 24 * 60 * 60);
+
+/// Retry cadence after a failed Tranco fetch. One hour, deliberately
+/// longer than the URLhaus retry: a stale allowlist is far less harmful
+/// than a stale blocklist, so a fast retry would just hammer the feed
+/// without buying meaningful freshness.
+const TRANCO_RETRY_AFTER_FAILURE: Duration = Duration::from_secs(60 * 60);
+
 /// Per-domain block metadata surfaced on the block-page (listing date,
 /// threat classification). Populated from URLhaus's CSV feed when
 /// available; left empty when we fall back to the hostfile feed.
@@ -48,6 +59,17 @@ pub type BlockList = Arc<RwLock<HashMap<String, BlockMetadata>>>;
 /// Construct an empty `BlockList`.
 pub fn new_blocklist() -> BlockList {
     Arc::new(RwLock::new(HashMap::new()))
+}
+
+/// Shared, reader-friendly Tranco allowlist of the top-N most popular
+/// domains. Domains in this set are never blackholed by the resolver,
+/// regardless of URLhaus content — a hijack/false-positive guard for
+/// popular sites. Cheap to clone — wraps an `Arc`. Keys are lowercase.
+pub type Allowlist = Arc<RwLock<HashSet<String>>>;
+
+/// Construct an empty `Allowlist`.
+pub fn new_allowlist() -> Allowlist {
+    Arc::new(RwLock::new(HashSet::new()))
 }
 
 /// Refresh URLhaus.
@@ -121,6 +143,53 @@ pub async fn is_blocked(blocklist: &BlockList, domain: &str) -> bool {
     lookup(blocklist, domain).await.is_some()
 }
 
+/// Refresh the Tranco allowlist: download the zip, extract the top-N
+/// domains, wholesale-replace the contents, return the new entry count.
+pub async fn refresh_tranco(allowlist: &Allowlist) -> anyhow::Result<usize> {
+    let domains = tranco::fetch_top_n().await?;
+    let count = domains.len();
+    let mut guard = allowlist.write().await;
+    *guard = domains;
+    Ok(count)
+}
+
+/// Long-running Tranco refresher loop. Quarterly steady-state cadence,
+/// one-hour retry on failure.
+///
+/// Fail-open: if the fetch fails the existing allowlist (empty on first
+/// boot, or last-known set from the previous cycle) stays in place.
+/// On-disk persistence is a follow-up — for v0.1 the allowlist lives
+/// in-memory and the resolver does not yet consult it, so the
+/// empty-on-first-boot window has no observable effect.
+///
+/// `Ok(())` is unreachable in practice — the loop runs for the lifetime
+/// of the process. The `Result<()>` shape matches the URLhaus and
+/// resolver tasks so the supervising `tokio::select!` can treat all of
+/// them uniformly.
+pub async fn run_tranco_refresher(allowlist: Allowlist) -> anyhow::Result<()> {
+    loop {
+        match refresh_tranco(&allowlist).await {
+            Ok(count) => {
+                eprintln!("tranco: loaded {count} domains");
+                sleep(TRANCO_REFRESH_INTERVAL).await;
+            }
+            Err(e) => {
+                eprintln!(
+                    "tranco: refresh failed: {e:#}; retrying in {:?}",
+                    TRANCO_RETRY_AFTER_FAILURE
+                );
+                sleep(TRANCO_RETRY_AFTER_FAILURE).await;
+            }
+        }
+    }
+}
+
+/// Look `domain` up in `allowlist`. Domains are stored lowercase, so the
+/// lookup lower-cases too.
+pub async fn is_allowed(allowlist: &Allowlist, domain: &str) -> bool {
+    allowlist.read().await.contains(&domain.to_lowercase())
+}
+
 /// Convert a hostfile domain set into a metadata map with empty
 /// metadata fields. Used as fallback when the CSV feed is unreachable;
 /// the resolver substitutes a `—` placeholder for any empty
@@ -173,5 +242,23 @@ mod tests {
             assert!(meta.listed_date.is_empty());
             assert!(meta.threat_type.is_empty());
         }
+    }
+
+    #[tokio::test]
+    async fn empty_allowlist_allows_nothing() {
+        let al = new_allowlist();
+        assert!(!is_allowed(&al, "example.com").await);
+    }
+
+    #[tokio::test]
+    async fn allowlist_lookup_is_case_insensitive() {
+        let al = new_allowlist();
+        // Allowlist contract: callers insert lowercase keys (matching
+        // what `tranco::parse_csv` emits). Lookups normalise too.
+        al.write().await.insert("example.com".to_string());
+        assert!(is_allowed(&al, "example.com").await);
+        assert!(is_allowed(&al, "EXAMPLE.COM").await);
+        assert!(is_allowed(&al, "Example.Com").await);
+        assert!(!is_allowed(&al, "other.com").await);
     }
 }

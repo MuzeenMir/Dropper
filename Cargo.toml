@@ -38,6 +38,10 @@ async-trait = "0.1"
 # leaner than `chrono` and we already depend on it transitively via
 # hickory.
 time = { version = "0.3", default-features = false, features = ["formatting", "std"] }
+# Tranco refresh: top-1M list ships as a zip archive containing a single
+# CSV. `default-features = false` + `deflate` keeps the dep tree minimal —
+# no bzip2/zstd/lzma transitive crates.
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
 # tower::ServiceExt::oneshot lets the router tests hit the in-process axum
