@@ -82,6 +82,22 @@ pub async fn is_allowed(allowlist: &AllowList, domain: &str) -> bool {
     false
 }
 
+/// User clicked "Allow once" on the block-page. Domain is allowed for
+/// [`ALLOW_ONCE_TTL`] (30 minutes) and then auto-re-blocks.
+pub async fn allow_once(allowlist: &AllowList, domain: &str) {
+    allow_once_with_ttl(allowlist, domain, ALLOW_ONCE_TTL).await
+}
+
+/// Test helper: same as [`allow_once`] but with caller-controlled TTL so
+/// tests can verify expiry behavior without sleeping for 30 minutes.
+/// Crate-private — production callers always use [`allow_once`].
+pub(crate) async fn allow_once_with_ttl(allowlist: &AllowList, domain: &str, ttl: Duration) {
+    let domain = domain.to_lowercase();
+    let expires_at = OffsetDateTime::now_utc() + time::Duration::seconds(ttl.as_secs() as i64);
+    let mut guard = allowlist.write().await;
+    guard.once.insert(domain, expires_at);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -101,5 +117,13 @@ mod tests {
         let al = new_allowlist(tmp_path());
         assert!(!is_allowed(&al, "example.com").await);
         assert!(!is_allowed(&al, "EXAMPLE.COM").await);
+    }
+
+    #[tokio::test]
+    async fn allow_once_is_allowed_within_ttl() {
+        let al = new_allowlist(tmp_path());
+        allow_once_with_ttl(&al, "phish.example", Duration::from_secs(60)).await;
+        assert!(is_allowed(&al, "phish.example").await);
+        assert!(is_allowed(&al, "PHISH.EXAMPLE").await);
     }
 }
