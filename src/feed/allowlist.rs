@@ -139,6 +139,17 @@ pub async fn load(allowlist: &AllowList) -> Result<usize> {
     Ok(guard.forever.len())
 }
 
+/// Remove `domain` from both the persistent and the in-memory layer,
+/// then re-persist. Called by the (PR-2) `forget` decision action and
+/// by tests.
+pub async fn forget(allowlist: &AllowList, domain: &str) -> Result<()> {
+    let domain = domain.to_lowercase();
+    let mut guard = allowlist.write().await;
+    guard.forever.remove(&domain);
+    guard.once.remove(&domain);
+    persist(&guard).await
+}
+
 /// Atomic write: serialize → write to `<path>.new` → rename over
 /// `<path>`. POSIX rename is atomic on the same filesystem; on NTFS,
 /// `MoveFileEx` with replace semantics gives the same guarantee.
@@ -250,6 +261,26 @@ mod tests {
 
         // The in-memory state is untouched on parse failure.
         assert!(!is_allowed(&al, "anything.example").await);
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn forget_removes_from_both_layers_and_persists() {
+        let path = tmp_path();
+        let al = new_allowlist(path.clone());
+
+        allow_forever(&al, "a.example").await.unwrap();
+        allow_once_with_ttl(&al, "a.example", Duration::from_secs(60)).await;
+        assert!(is_allowed(&al, "a.example").await);
+
+        forget(&al, "a.example").await.unwrap();
+        assert!(!is_allowed(&al, "a.example").await);
+
+        // Re-load from disk: forever layer must reflect the forget.
+        let al2 = new_allowlist(path.clone());
+        let n = load(&al2).await.unwrap();
+        assert_eq!(n, 0);
 
         let _ = std::fs::remove_file(&path);
     }
