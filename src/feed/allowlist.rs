@@ -127,8 +127,8 @@ pub async fn load(allowlist: &AllowList) -> Result<usize> {
         .await
         .with_context(|| format!("reading allowlist {}", path.display()))?;
     let text = String::from_utf8(bytes).context("allowlist is not valid utf-8")?;
-    let parsed: PersistedAllowList = toml::from_str(&text)
-        .with_context(|| format!("parsing allowlist {}", path.display()))?;
+    let parsed: PersistedAllowList =
+        toml::from_str(&text).with_context(|| format!("parsing allowlist {}", path.display()))?;
 
     let mut guard = allowlist.write().await;
     guard.forever = parsed
