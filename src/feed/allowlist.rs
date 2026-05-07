@@ -238,4 +238,19 @@ mod tests {
         // Cleanup.
         let _ = std::fs::remove_file(&path);
     }
+
+    #[tokio::test]
+    async fn load_returns_error_on_corrupt_toml() {
+        let path = tmp_path();
+        std::fs::write(&path, b"this is not valid {{{ toml ===").unwrap();
+
+        let al = new_allowlist(path.clone());
+        let result = load(&al).await;
+        assert!(result.is_err(), "corrupt toml must surface an error");
+
+        // The in-memory state is untouched on parse failure.
+        assert!(!is_allowed(&al, "anything.example").await);
+
+        let _ = std::fs::remove_file(&path);
+    }
 }
