@@ -38,6 +38,12 @@ async-trait = "0.1"
 # leaner than `chrono` and we already depend on it transitively via
 # hickory.
 time = { version = "0.3", default-features = false, features = ["formatting", "std"] }
+# Allowlist persistence (PR-1): TOML for the on-disk allow-forever store,
+# `dirs` for resolving %APPDATA%\sentinel\ on Windows. `dirs` is only
+# wired up in PR-2's main.rs, but the dep declaration lands here to keep
+# the PR-2 diff minimal.
+toml = "0.8"
+dirs = "5"
 # Tranco refresh: top-1M list ships as a zip archive containing a single
 # CSV. `default-features = false` + `deflate` keeps the dep tree minimal —
 # no bzip2/zstd/lzma transitive crates.
