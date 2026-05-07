@@ -303,4 +303,21 @@ mod tests {
 
         let _ = std::fs::remove_file(&path);
     }
+
+    #[tokio::test]
+    async fn lookups_are_case_insensitive_across_both_layers() {
+        let al = new_allowlist(tmp_path());
+
+        allow_forever(&al, "Mixed.Case.Example").await.unwrap();
+        allow_once_with_ttl(&al, "ANOTHER.EXAMPLE", Duration::from_secs(60)).await;
+
+        // Forever layer
+        assert!(is_allowed(&al, "mixed.case.example").await);
+        assert!(is_allowed(&al, "MIXED.CASE.EXAMPLE").await);
+        assert!(is_allowed(&al, "Mixed.Case.Example").await);
+
+        // Once layer
+        assert!(is_allowed(&al, "another.example").await);
+        assert!(is_allowed(&al, "Another.Example").await);
+    }
 }
