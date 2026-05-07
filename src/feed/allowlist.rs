@@ -126,4 +126,18 @@ mod tests {
         assert!(is_allowed(&al, "phish.example").await);
         assert!(is_allowed(&al, "PHISH.EXAMPLE").await);
     }
+
+    #[tokio::test]
+    async fn allow_once_denied_after_ttl_and_prunes_entry() {
+        let al = new_allowlist(tmp_path());
+        // 1ms TTL — guaranteed expired by the time tokio yields.
+        allow_once_with_ttl(&al, "phish.example", Duration::from_millis(1)).await;
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        assert!(!is_allowed(&al, "phish.example").await);
+
+        // Verify the read-path prune actually removed the expired entry.
+        let guard = al.read().await;
+        assert!(!guard.once.contains_key("phish.example"));
+    }
 }
