@@ -18,7 +18,7 @@ path = "src/lib.rs"
 
 [dependencies]
 anyhow = "1.0"
-tokio = { version = "1.41", features = ["rt-multi-thread", "macros", "net", "sync", "time"] }
+tokio = { version = "1.41", features = ["rt-multi-thread", "macros", "net", "sync", "time", "fs"] }
 # rustls-tls keeps the build portable on Windows + Linux CI without OpenSSL.
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 # Block-page server: axum on 127.0.0.1, default features off so we only pull
@@ -38,6 +38,12 @@ async-trait = "0.1"
 # leaner than `chrono` and we already depend on it transitively via
 # hickory.
 time = { version = "0.3", default-features = false, features = ["formatting", "std"] }
+# Allowlist persistence (PR-1): TOML for the on-disk allow-forever store,
+# `dirs` for resolving %APPDATA%\sentinel\ on Windows. `dirs` is only
+# wired up in PR-2's main.rs, but the dep declaration lands here to keep
+# the PR-2 diff minimal.
+toml = "0.8"
+dirs = "5"
 # Tranco refresh: top-1M list ships as a zip archive containing a single
 # CSV. `default-features = false` + `deflate` keeps the dep tree minimal —
 # no bzip2/zstd/lzma transitive crates.
