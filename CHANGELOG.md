@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/MuzeenMir/Dropper/compare/v0.1.2...v0.1.3) (2026-05-07)
+
+
+### Features
+
+* **feed:** allowlist store (PR-1 of resolver-UX cluster) ([#26](https://github.com/MuzeenMir/Dropper/issues/26)) ([4315268](https://github.com/MuzeenMir/Dropper/commit/4315268bc0b83ab6a244ce69cace2d27134bf671))
+
 ## [0.1.2](https://github.com/MuzeenMir/Dropper/compare/v0.1.1...v0.1.2) (2026-05-01)
 
 
