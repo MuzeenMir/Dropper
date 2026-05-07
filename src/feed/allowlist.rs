@@ -284,4 +284,23 @@ mod tests {
 
         let _ = std::fs::remove_file(&path);
     }
+
+    #[tokio::test]
+    async fn atomic_write_leaves_no_stale_new_file_after_success() {
+        let path = tmp_path();
+        let al = new_allowlist(path.clone());
+
+        allow_forever(&al, "a.example").await.unwrap();
+
+        // The real file exists; the .new sibling should not.
+        assert!(path.exists(), "primary file must exist after persist");
+        let stale = path.with_extension("toml.new");
+        assert!(
+            !stale.exists(),
+            "atomic rename must consume the .new file, found {}",
+            stale.display()
+        );
+
+        let _ = std::fs::remove_file(&path);
+    }
 }
