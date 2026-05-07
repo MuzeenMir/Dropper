@@ -2,9 +2,8 @@ name: security
 
 # Repo-generic security gates that survive the v1 archive.
 # Python/Node-specific scans (pip-audit, bandit, npm-audit, semgrep python/ts,
-# CodeQL, auth-tests, ZAP DAST) were dropped with sentinel-core/ removal in
-# PR T1-2; reintroduce per-language jobs as the Rust skeleton (and any new
-# Python/JS surfaces) lands.
+# CodeQL, auth-tests, ZAP DAST) were dropped when Dropper narrowed to the
+# Rust DNS Shield. Reintroduce per-language jobs if new Python/JS surfaces land.
 #
 # Aggregator job `security` retained for branch protection compatibility.
 

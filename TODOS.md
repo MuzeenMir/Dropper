@@ -1,24 +1,24 @@
-# Sentinel — TODOs
+# Dropper — TODOs
 
 Operational follow-ups not in the active design doc. Each entry has: What, Why, Pros, Cons, Context, Depends on. Sourced from `/plan-eng-review` 2026-04-25.
 
 ## Pre-v0.1 sprint
 
-### T1: Archive v1+v2 Python codebase
+### T1: Repository split complete
 
-- **What:** Create `archive/v1-python` branch from current main, push to origin. Then `git rm -r sentinel-core/` on main, commit, push. Add a 1-line README pointer to the archive branch.
-- **Why:** P9 lock (one active project) requires clean main. Cruft = scope-mix temptation. The 18 months of v1 + v2 revamp docs are real work worth preserving in history, just not on main.
-- **Pros:** Clean main, history preserved, future revisit possible via `git checkout archive/v1-python` if v0.2+ wants to mine v1 audit-service patterns or v2 LLM-gateway design.
-- **Cons:** ~30min one-time effort. Forces commit-storm in git log.
-- **Context:** Current `sentinel-core/` contains 11 Python microservices, Flask apps, Kafka, Flink jobs, React frontend, Terraform. Yesterday's AI Agent Sec design at `~/.gstack/projects/MuzeenMir-sentinel/dscorp-main-design-20260424-072705.md` is already separate from repo. Today's network-shield design at `~/.gstack/projects/MuzeenMir-sentinel/dscorp-main-design-20260425-191642.md`.
+- **What:** The DNS Shield project now lives in `MuzeenMir/Dropper`; the older Sentinel server/endpoint security platform lives in `MuzeenMir/sentinel`.
+- **Why:** One active project per repository. Dropper remains the narrow DNS Shield, while Sentinel keeps the platform scope and research history.
+- **Pros:** Cleaner branding, cleaner docs, less scope confusion.
+- **Cons:** Historical branch and issue links may still mention the former Sentinel name.
+- **Context:** Completed on 2026-05-07 during the Sentinel/Dropper repository migration.
 - **Depends on:** nothing.
-- **When:** Day 0 spike, Saturday 2026-04-26, BEFORE Rust skeleton work begins.
+- **When:** Done.
 
 ## v0.1 sprint scope add
 
 ### T2: Quarterly Tranco baseline auto-refresh
 
-- **What:** Add quarterly Tranco top-10k baseline refresh to threat-feed updater (`sentinel-core/src/feed/tranco.rs`). Background tokio task. Download to `tranco-baseline.txt.new`, atomic swap. Tray turns yellow if download fails 3 times.
+- **What:** Add quarterly Tranco top-10k baseline refresh to threat-feed updater (`src/feed/tranco.rs`). Background tokio task. Download to `tranco-baseline.txt.new`, atomic swap. Tray turns yellow if download fails 3 times.
 - **Why:** Tranco list shifts over time (new popular sites appear, old ones decline). Allowlist baked at install would go stale over years of installed lifetime, causing legitimate-but-newer sites to potentially get false-positive-blocked by feed updates.
 - **Pros:** Allowlist stays honest over years. ~300KB per quarter download. Near-zero CPU.
 - **Cons:** ~30 LOC + 1 unit test. README mention.
@@ -30,7 +30,7 @@ Operational follow-ups not in the active design doc. Each entry has: What, Why, 
 
 ### T3: VPN-conflict resolution policy = auto-pause + auto-resume
 
-- **What:** Spec + design v0.2 VPN-conflict policy: tray polls per-adapter DNS every 30s. If any non-loopback adapter has DNS != 127.0.0.1, Sentinel enters "paused-by-VPN" state silently (yellow icon, no nag toast). When all adapters return to 127.0.0.1 or VPN drops, auto-resume. Surface state in tray right-click menu ("Paused while VPN active").
+- **What:** Spec + design v0.2 VPN-conflict policy: tray polls per-adapter DNS every 30s. If any non-loopback adapter has DNS != 127.0.0.1, Dropper enters "paused-by-VPN" state silently (yellow icon, no nag toast). When all adapters return to 127.0.0.1 or VPN drops, auto-resume. Surface state in tray right-click menu ("Paused while VPN active").
 - **Why:** v0.1 punts with yellow icon + one-time alert toast. v0.2 must commit to a policy before sprint code starts so the design integrates cleanly. Auto-pause matches silent-defender principle (no nags), respects user intent (they chose to use the VPN), and accepts that most security-focused VPNs (Cloudflare WARP, corporate VPNs) do some level of DNS hygiene themselves.
 - **Pros:** Zero nag pattern. Honest deferral to user-chosen VPN. Easy to implement (add state machine to tray, expose via IPC to service).
 - **Cons:** Security regression while VPN active (no malware blocking from non-VPN-protected destinations). Document explicitly in SECURITY.md as known trade-off.
@@ -42,7 +42,7 @@ Operational follow-ups not in the active design doc. Each entry has: What, Why, 
 
 ### Td-4: axe-core a11y CI check on block-page
 
-- **What:** GitHub Actions workflow runs `@axe-core/cli` (or Playwright + `@axe-core/playwright`) against rendered block-page HTML on every PR touching `sentinel-core/src/blockpage/`. Fails PR on any WCAG AA violation.
+- **What:** GitHub Actions workflow runs `@axe-core/cli` (or Playwright + `@axe-core/playwright`) against rendered block-page HTML on every PR touching `src/blockpage/`. Fails PR on any WCAG AA violation.
 - **Why:** Block-page is the trust artifact. Silent contrast/keyboard/ARIA regressions exclude screen-reader users from understanding why their connection failed — exactly the kind of failure a security tool can't have. DESIGN.md sets the spec; CI keeps it honest.
 - **Pros:** Auto-checked every PR. ~1min CI time. Catches contrast drops, missing alt text, broken keyboard nav, ARIA issues, color-only state communication.
 - **Cons:** ~1h to set up the workflow. False-positive flags on weird DOM patterns will need allowlist tuning.
@@ -57,7 +57,7 @@ Operational follow-ups not in the active design doc. Each entry has: What, Why, 
 - **Pros:** ~1h work. Same SVG path used inline in block-page already, just resized + recolored. Could be done in Inkscape OR by hand-editing path data.
 - **Cons:** Manual SVG drawing is tedious; alternative is to hire a designer for ~$50 on Fiverr (faster, may or may not be on-brand).
 - **Context:** Locked in /plan-design-review (2026-04-26). DESIGN.md has full spec including amber sub-state tooltips.
-- **Depends on:** DESIGN.md (committed at `/mnt/c/Projects/sentinel/DESIGN.md`).
+- **Depends on:** DESIGN.md (committed at `/mnt/c/Projects/dropper/DESIGN.md`).
 - **When:** Week 2 of v0.1 sprint, alongside `tray-icon` crate Rust binding work.
 
 ### T3: v0.1 DX Expansion (9 items, ~5 days, sourced from /plan-devex-review 2026-04-26)
@@ -65,8 +65,8 @@ Operational follow-ups not in the active design doc. Each entry has: What, Why, 
 - **What:** Land DX gaps before v0.1 launch. Persona: HN/Show HN reader (sec-curious dev, 5min eval window). Mode: DX EXPANSION. Initial score 5/10 → projected 9/10 post-implementation. Adds ~5 days to v0.1 sprint; ship date slips from 2026-05-16 to ~2026-05-23.
 - **Why:** v0.1 launch motion = Show HN (design line 461). HN reader within 5 minutes decides install/bookmark/skip. Each item below traced to concrete friction in the persona empathy narrative.
 - **Pros:** Closes friction on trust-evaluation path. Pre-empts repeat HN comments. Opens door to OSS contributors from day 1. Compatible with zero-telemetry trust commitment (all measurement opt-in/self-paste).
-- **Cons:** +5 days on a 3-week sprint = ~1 week ship slip. Some items (`sentinel doctor`, CONTRIBUTING.md) could defer cleanly to v0.2 if budget bites; user chose all-in.
-- **Context:** /plan-devex-review run 2026-04-26 on commit a398b283. Persona, narrative, per-pass scoring logged in `~/.gstack/projects/MuzeenMir-sentinel/main-reviews.jsonl`.
+- **Cons:** +5 days on a 3-week sprint = ~1 week ship slip. Some items (`dropper doctor`, CONTRIBUTING.md) could defer cleanly to v0.2 if budget bites; user chose all-in.
+- **Context:** /plan-devex-review run 2026-04-26 on commit a398b283. Persona, narrative, per-pass scoring logged in `~/.gstack/projects/MuzeenMir-Dropper/main-reviews.jsonl`.
 - **Depends on:** v0.1 sprint scaffolding (T1 archive done, project skeleton up).
 - **When:** Interleaved through v0.1 sprint Weeks 1-3.
 
@@ -78,12 +78,12 @@ README:
 - [ ] FAQ.md link in trust-signal section
 
 CLI:
-- [ ] `sentinel tail` — block.log JSONL streamer (~30 LOC)
-- [ ] `sentinel --help` complete + per-subcommand help text
-- [ ] `sentinel doctor` — port-53 + feed-stale + VPN-detect + DNS-config diag
-- [ ] `sentinel doctor --report` — anonymized opt-in paste for bug reports
-- [ ] `sentinel update --check` — opt-in GitHub Releases poll
-- [ ] `sentinel service --foreground --no-install` — contributor dev-loop
+- [ ] `dropper tail` — block.log JSONL streamer (~30 LOC)
+- [ ] `dropper --help` complete + per-subcommand help text
+- [ ] `dropper doctor` — port-53 + feed-stale + VPN-detect + DNS-config diag
+- [ ] `dropper doctor --report` — anonymized opt-in paste for bug reports
+- [ ] `dropper update --check` — opt-in GitHub Releases poll
+- [ ] `dropper service --foreground --no-install` — contributor dev-loop
 
 Errors (Rust-tier: code + cause + fix + doc-link):
 - [ ] E001 PORT_53_OCCUPIED → installer dialog + `127.0.0.1/help/port-conflict`
@@ -101,7 +101,7 @@ Config:
 - [ ] `version: 1` field in `allowlist.json` + `config.toml` (v0.2 migration anchor)
 
 CI:
-- [ ] Linux + macOS `cargo check sentinel-core` (lib cross-platform sanity, GH Actions free)
+- [ ] Linux + macOS `cargo check` (lib cross-platform sanity, GH Actions free)
 
 GitHub repo:
 - [ ] Issue templates: `bug.yml` / `fp-report.yml` / `feature.yml`

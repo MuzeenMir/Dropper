@@ -1,19 +1,19 @@
 [package]
-name = "sentinel"
+name = "dropper"
 version = "0.1.0-dev"
 edition = "2021"
 rust-version = "1.78"
 license = "MIT"
-repository = "https://github.com/MuzeenMir/sentinel"
+repository = "https://github.com/MuzeenMir/Dropper"
 description = "Open-source DNS shield for Windows."
 authors = ["Muzeen Mir <roodynicole833@gmail.com>"]
 
 [[bin]]
-name = "sentinel"
+name = "dropper"
 path = "src/main.rs"
 
 [lib]
-name = "sentinel"
+name = "dropper"
 path = "src/lib.rs"
 
 [dependencies]
@@ -39,7 +39,7 @@ async-trait = "0.1"
 # hickory.
 time = { version = "0.3", default-features = false, features = ["formatting", "std"] }
 # Allowlist persistence (PR-1): TOML for the on-disk allow-forever store,
-# `dirs` for resolving %APPDATA%\sentinel\ on Windows. `dirs` is only
+# `dirs` for resolving %APPDATA%\dropper\ on Windows. `dirs` is only
 # wired up in PR-2's main.rs, but the dep declaration lands here to keep
 # the PR-2 diff minimal.
 toml = "0.8"

@@ -1,4 +1,4 @@
-//! Sentinel — open-source DNS shield for Windows.
+//! Dropper — open-source DNS shield for Windows.
 //!
 //! Pre-v0.1 skeleton. Modules below are intentionally placeholders so the
 //! crate compiles cleanly on Linux + Windows CI while v0.1 sprint code is

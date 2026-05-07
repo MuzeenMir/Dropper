@@ -209,6 +209,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "dropper"
+version = "0.1.0-dev"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "axum",
+ "dirs",
+ "hickory-proto",
+ "hickory-resolver",
+ "hickory-server",
+ "http-body-util",
+ "reqwest",
+ "serde",
+ "time",
+ "tokio",
+ "toml",
+ "tower",
+ "zip",
+]
+
+[[package]]
 name = "enum-as-inner"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1112,27 +1133,6 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
-
-[[package]]
-name = "sentinel"
-version = "0.1.0-dev"
-dependencies = [
- "anyhow",
- "async-trait",
- "axum",
- "dirs",
- "hickory-proto",
- "hickory-resolver",
- "hickory-server",
- "http-body-util",
- "reqwest",
- "serde",
- "time",
- "tokio",
- "toml",
- "tower",
- "zip",
-]
 
 [[package]]
 name = "serde"

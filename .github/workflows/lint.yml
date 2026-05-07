@@ -1,9 +1,8 @@
 name: lint
 
 # Conventional Commits gate. Backend (ruff) + frontend (eslint/prettier)
-# jobs were dropped with the v1 sentinel-core/ archive; reintroduce
-# language-specific lint as the Rust skeleton (cargo fmt, clippy) and any
-# new JS/Python surfaces land.
+# jobs were dropped when Dropper narrowed to the Rust DNS Shield. Reintroduce
+# language-specific lint if new JS/Python surfaces land.
 
 on:
   push:

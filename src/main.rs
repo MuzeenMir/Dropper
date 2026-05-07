@@ -1,4 +1,4 @@
-// Entry point for the `sentinel` CLI.
+// Entry point for the `dropper` CLI.
 //
 // Pre-v0.1 stub. Subcommands `install`, `doctor`, `tail` land alongside
 // the v0.1 sprint work tracked in TODOS.md. `service` (this PR) starts
@@ -7,15 +7,15 @@
 use std::process::ExitCode;
 
 use anyhow::Result;
-use sentinel::blockpage::AppState;
-use sentinel::feed::{new_blocklist, run_urlhaus_refresher};
-use sentinel::resolver::{self, Resolver};
+use dropper::blockpage::AppState;
+use dropper::feed::{new_blocklist, run_urlhaus_refresher};
+use dropper::resolver::{self, Resolver};
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
     if args.iter().any(|a| a == "--version" || a == "-V") {
-        println!("sentinel {}", env!("CARGO_PKG_VERSION"));
+        println!("dropper {}", env!("CARGO_PKG_VERSION"));
         return ExitCode::SUCCESS;
     }
 
@@ -28,13 +28,13 @@ fn main() -> ExitCode {
         return match run_service() {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
-                eprintln!("sentinel service: {e:#}");
+                eprintln!("dropper service: {e:#}");
                 ExitCode::FAILURE
             }
         };
     }
 
-    eprintln!("sentinel: pre-v0.1 skeleton.");
+    eprintln!("dropper: pre-v0.1 skeleton.");
     eprintln!("subcommands `install`, `doctor`, `tail` land in the v0.1 sprint.");
     eprintln!("see TODOS.md and DESIGN.md for scope.");
     eprintln!();
@@ -43,10 +43,10 @@ fn main() -> ExitCode {
 }
 
 fn print_help() {
-    println!("sentinel — open-source DNS shield for Windows");
+    println!("dropper — open-source DNS shield for Windows");
     println!();
-    println!("usage: sentinel [--version | -V] [--help | -h]");
-    println!("       sentinel service");
+    println!("usage: dropper [--version | -V] [--help | -h]");
+    println!("       dropper service");
     println!();
     println!("commands:");
     println!("  service    run the local DNS resolver + block-page server");
@@ -71,7 +71,7 @@ fn run_service() -> Result<()> {
         // systemd / installer) knows to restart.
         let resolver_task = tokio::spawn(async move { resolver::serve(resolver).await });
         let blockpage_task =
-            tokio::spawn(async move { sentinel::blockpage::serve(blockpage).await });
+            tokio::spawn(async move { dropper::blockpage::serve(blockpage).await });
         let refresher_task = {
             let blocklist = blocklist.clone();
             tokio::spawn(async move { run_urlhaus_refresher(blocklist).await })

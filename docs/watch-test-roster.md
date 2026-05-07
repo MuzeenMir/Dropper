@@ -43,7 +43,7 @@ session log. Do NOT delay the install — the install date is the artifact.
    block-page seen, any errors, any moment they ask "what does this do?"
 
 **Day 3 (3 days post-install):**
-- Single message: "is Sentinel still running, did anything break?"
+- Single message: "is Dropper still running, did anything break?"
 - If they say uninstalled → ask why, do NOT defend the product.
 - If they say still running → do not prompt further; one-line answer
   is the artifact.
