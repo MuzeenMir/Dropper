@@ -83,7 +83,7 @@ pub async fn is_allowed(allowlist: &AllowList, domain: &str) -> bool {
 }
 
 /// User clicked "Allow once" on the block-page. Domain is allowed for
-/// [`ALLOW_ONCE_TTL`] (30 minutes) and then auto-re-blocks.
+/// `ALLOW_ONCE_TTL` (30 minutes) and then auto-re-blocks.
 pub async fn allow_once(allowlist: &AllowList, domain: &str) {
     allow_once_with_ttl(allowlist, domain, ALLOW_ONCE_TTL).await
 }
