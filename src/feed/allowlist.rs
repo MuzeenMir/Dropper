@@ -52,3 +52,54 @@ pub fn new_allowlist(path: PathBuf) -> AllowList {
         persist_path: path,
     }))
 }
+
+/// Is `domain` currently allowed?
+///
+/// Checks `forever` first (cheap `HashSet` hit), then `once` with an
+/// expiry check. Expired `once` entries are pruned lazily on the read
+/// path — no background sweeper task. Memory bound is the count of
+/// allow-once clicks within any single 30-minute window.
+pub async fn is_allowed(allowlist: &AllowList, domain: &str) -> bool {
+    let domain = domain.to_lowercase();
+
+    // Fast path under read lock. Returns early in three of four cases.
+    let needs_prune = {
+        let guard = allowlist.read().await;
+        if guard.forever.contains(&domain) {
+            return true;
+        }
+        match guard.once.get(&domain) {
+            None => return false,
+            Some(&expires_at) if OffsetDateTime::now_utc() < expires_at => return true,
+            Some(_) => true,
+        }
+    };
+
+    if needs_prune {
+        let mut guard = allowlist.write().await;
+        guard.once.remove(&domain);
+    }
+    false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tmp_path() -> PathBuf {
+        let mut p = std::env::temp_dir();
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        p.push(format!("sentinel-allowlist-test-{nanos}.toml"));
+        p
+    }
+
+    #[tokio::test]
+    async fn empty_allowlist_allows_nothing() {
+        let al = new_allowlist(tmp_path());
+        assert!(!is_allowed(&al, "example.com").await);
+        assert!(!is_allowed(&al, "EXAMPLE.COM").await);
+    }
+}
