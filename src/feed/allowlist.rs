@@ -98,6 +98,82 @@ pub(crate) async fn allow_once_with_ttl(allowlist: &AllowList, domain: &str, ttl
     guard.once.insert(domain, expires_at);
 }
 
+/// User clicked "Allow forever" on the block-page. Domain is added to
+/// the persistent allowlist and the on-disk file is rewritten atomically.
+pub async fn allow_forever(allowlist: &AllowList, domain: &str) -> Result<()> {
+    let domain = domain.to_lowercase();
+    let mut guard = allowlist.write().await;
+    guard.forever.insert(domain);
+    persist(&guard).await
+}
+
+/// Hydrate the `forever` layer from `persist_path`. Returns the count
+/// of loaded entries.
+///
+/// Missing file is **not** an error — first run starts with an empty
+/// list. Malformed TOML **is** an error; the caller decides whether to
+/// fall back or hard-fail.
+pub async fn load(allowlist: &AllowList) -> Result<usize> {
+    let path = {
+        let guard = allowlist.read().await;
+        guard.persist_path.clone()
+    };
+
+    if !path.exists() {
+        return Ok(0);
+    }
+
+    let bytes = tokio::fs::read(&path)
+        .await
+        .with_context(|| format!("reading allowlist {}", path.display()))?;
+    let text = String::from_utf8(bytes).context("allowlist is not valid utf-8")?;
+    let parsed: PersistedAllowList = toml::from_str(&text)
+        .with_context(|| format!("parsing allowlist {}", path.display()))?;
+
+    let mut guard = allowlist.write().await;
+    guard.forever = parsed
+        .forever
+        .into_iter()
+        .map(|d| d.to_lowercase())
+        .collect();
+    Ok(guard.forever.len())
+}
+
+/// Atomic write: serialize → write to `<path>.new` → rename over
+/// `<path>`. POSIX rename is atomic on the same filesystem; on NTFS,
+/// `MoveFileEx` with replace semantics gives the same guarantee.
+///
+/// Held under the caller's write guard, so two concurrent
+/// `allow_forever` calls serialize through the lock and the on-disk
+/// state always matches the in-memory state at the moment of the
+/// successful rename.
+async fn persist(state: &AllowState) -> Result<()> {
+    let mut sorted: Vec<String> = state.forever.iter().cloned().collect();
+    sorted.sort();
+    let payload = PersistedAllowList { forever: sorted };
+    let serialized = toml::to_string(&payload).context("serializing allowlist")?;
+
+    let path = &state.persist_path;
+    let tmp = path.with_extension("toml.new");
+
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            tokio::fs::create_dir_all(parent)
+                .await
+                .with_context(|| format!("creating parent dir {}", parent.display()))?;
+        }
+    }
+
+    tokio::fs::write(&tmp, serialized.as_bytes())
+        .await
+        .with_context(|| format!("writing temp {}", tmp.display()))?;
+    tokio::fs::rename(&tmp, path)
+        .await
+        .with_context(|| format!("renaming {} to {}", tmp.display(), path.display()))?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,5 +215,27 @@ mod tests {
         // Verify the read-path prune actually removed the expired entry.
         let guard = al.read().await;
         assert!(!guard.once.contains_key("phish.example"));
+    }
+
+    #[tokio::test]
+    async fn allow_forever_roundtrips_through_disk() {
+        let path = tmp_path();
+
+        // First instance writes.
+        let al1 = new_allowlist(path.clone());
+        allow_forever(&al1, "Phish.Example").await.unwrap();
+        allow_forever(&al1, "another.example").await.unwrap();
+
+        // Drop and re-construct against the same file.
+        drop(al1);
+        let al2 = new_allowlist(path.clone());
+        let n = load(&al2).await.unwrap();
+        assert_eq!(n, 2);
+        assert!(is_allowed(&al2, "phish.example").await);
+        assert!(is_allowed(&al2, "another.example").await);
+        assert!(!is_allowed(&al2, "benign.example").await);
+
+        // Cleanup.
+        let _ = std::fs::remove_file(&path);
     }
 }
