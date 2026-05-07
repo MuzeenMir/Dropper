@@ -195,7 +195,7 @@ mod tests {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
             .unwrap_or(0);
-        p.push(format!("sentinel-allowlist-test-{nanos}.toml"));
+        p.push(format!("dropper-allowlist-test-{nanos}.toml"));
         p
     }
 

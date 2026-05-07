@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# apply-branch-protection.sh — configure GitHub branch protection for SENTINEL `main`.
+# apply-branch-protection.sh — configure GitHub branch protection for DROPPER `main`.
 #
 # WARNING: This script mutates GitHub settings on the canonical remote
-# (github.com/MuzeenMir/sentinel). Do NOT run in CI; do NOT run without review.
+# (github.com/MuzeenMir/Dropper). Do NOT run in CI; do NOT run without review.
 # It is intentionally idempotent so it can be re-run to align drift.
 #
 # Requires: gh CLI authenticated with admin:repo_hook + repo scopes.
@@ -11,7 +11,7 @@
 #
 # Flags:
 #   --dry-run   Print the JSON payload and `gh api` command; make no changes.
-#   --repo      Override the target repo (default: MuzeenMir/sentinel).
+#   --repo      Override the target repo (default: MuzeenMir/Dropper).
 #   --branch    Override the protected branch (default: main).
 #
 # Required status checks are listed below and must exist in the repo before
@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-REPO="MuzeenMir/sentinel"
+REPO="MuzeenMir/Dropper"
 BRANCH="main"
 DRY_RUN="false"
 

@@ -1,10 +1,9 @@
-# SENTINEL CODEOWNERS
+# DROPPER CODEOWNERS
 # Syntax: https://docs.github.com/en/repositories/managing-your-repositories-settings-and-security/customizing-your-repository/about-code-owners
 # Last matching rule wins. Solo-dev phase: all paths fall back to @MuzeenMir.
 #
-# v1 sentinel-core/ tree archived (see archive/v1-python branch); per-service
-# rules removed with that tree. Re-add granular ownership as the Rust skeleton
-# and any team form.
+# Dropper is currently a single Rust DNS Shield. Re-add granular ownership as
+# the tree grows and any team forms.
 
 # ---- Global fallback ----
 *                                       @MuzeenMir

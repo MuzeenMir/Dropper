@@ -1,9 +1,9 @@
-# Sentinel v0.1.1 watch-test uninstall
+# Dropper v0.1.1 watch-test uninstall
 # Run from an elevated (admin) PowerShell, from the same folder you ran setup.ps1.
 #
 # What this script does:
 #   1. Verifies admin
-#   2. Stops sentinel.exe processes
+#   2. Stops dropper.exe processes
 #   3. Restores adapter DNS from .dns-backup.json (or resets to DHCP if missing)
 #   4. Flushes DNS cache
 
@@ -17,9 +17,9 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
     exit 1
 }
 
-# 2a. Unregister the auto-start scheduled task BEFORE killing sentinel.exe,
+# 2a. Unregister the auto-start scheduled task BEFORE killing dropper.exe,
 #     so the task can't re-spawn the process between our kill and DNS revert.
-$taskName = 'SentinelWatchtest'
+$taskName = 'DropperWatchtest'
 $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 if ($existing) {
     Write-Host "Unregistering scheduled task '$taskName'..."
@@ -27,35 +27,35 @@ if ($existing) {
 } else {
     Write-Host "No scheduled task '$taskName' registered."
 }
-$wrapperPath = Join-Path $PSScriptRoot 'sentinel-autostart.ps1'
+$wrapperPath = Join-Path $PSScriptRoot 'dropper-autostart.ps1'
 if (Test-Path $wrapperPath) { Remove-Item $wrapperPath -ErrorAction SilentlyContinue }
 
-# 2b. Stop sentinel.exe — prefer the PID file written by setup.ps1, fall
+# 2b. Stop dropper.exe — prefer the PID file written by setup.ps1, fall
 #    back to name-match so this script also works for ad-hoc kills.
-$pidPath = Join-Path $PSScriptRoot '.sentinel.pid'
+$pidPath = Join-Path $PSScriptRoot '.dropper.pid'
 $stopped = $false
 if (Test-Path $pidPath) {
-    $sentinelPid = (Get-Content $pidPath -Raw).Trim()
-    if ($sentinelPid -match '^\d+$') {
-        $proc = Get-Process -Id $sentinelPid -ErrorAction SilentlyContinue
+    $dropperPid = (Get-Content $pidPath -Raw).Trim()
+    if ($dropperPid -match '^\d+$') {
+        $proc = Get-Process -Id $dropperPid -ErrorAction SilentlyContinue
         if ($proc) {
-            Write-Host "Stopping sentinel.exe (pid $sentinelPid from .sentinel.pid)..."
-            Stop-Process -Id $sentinelPid -Force
+            Write-Host "Stopping dropper.exe (pid $dropperPid from .dropper.pid)..."
+            Stop-Process -Id $dropperPid -Force
             $stopped = $true
         }
     }
     Remove-Item $pidPath -ErrorAction SilentlyContinue
 }
 if (-not $stopped) {
-    $procs = Get-Process -Name sentinel -ErrorAction SilentlyContinue
+    $procs = Get-Process -Name dropper -ErrorAction SilentlyContinue
     if ($procs) {
-        Write-Host "Stopping sentinel.exe ($($procs.Count) process(es) by name)..."
+        Write-Host "Stopping dropper.exe ($($procs.Count) process(es) by name)..."
         $procs | Stop-Process -Force
         $stopped = $true
     }
 }
 if (-not $stopped) {
-    Write-Host "No sentinel.exe process running."
+    Write-Host "No dropper.exe process running."
 }
 
 # 3. Restore DNS
@@ -84,4 +84,4 @@ if (Test-Path $backupPath) {
 Clear-DnsClientCache
 Write-Host ""
 Write-Host "Uninstall complete." -ForegroundColor Green
-Write-Host "Sentinel stopped, DNS restored, cache flushed."
+Write-Host "Dropper stopped, DNS restored, cache flushed."

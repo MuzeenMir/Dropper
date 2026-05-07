@@ -1,4 +1,4 @@
-# Sentinel v0.1.1 watch-test setup
+# Dropper v0.1.1 watch-test setup
 # Run from an elevated (admin) PowerShell.
 #
 # What this script does:
@@ -6,7 +6,7 @@
 #   2. Detects active network adapter
 #   3. Records current DNS for restore (writes ./.dns-backup.json)
 #   4. Sets adapter DNS to 127.0.0.1
-#   5. Starts sentinel.exe in a new window
+#   5. Starts dropper.exe in a new window
 #   6. Tells you when block-page is reachable
 #
 # Reverse with .\uninstall.ps1 from the same directory.
@@ -49,20 +49,20 @@ Set-DnsClientServerAddress -InterfaceAlias $adapter.Name -ServerAddresses 127.0.
 Clear-DnsClientCache
 Write-Host "DNS on '$($adapter.Name)' is now 127.0.0.1"
 
-# 5. Start sentinel.exe with `service` subcommand and redirect output to a log file.
+# 5. Start dropper.exe with `service` subcommand and redirect output to a log file.
 #    Without `service` the binary prints help text and exits immediately
 #    (see src/main.rs). The log file is the only way Yami / the dev sees a
 #    panic message; Start-Process closes the window on exit.
-$exePath = Join-Path $PSScriptRoot 'sentinel.exe'
+$exePath = Join-Path $PSScriptRoot 'dropper.exe'
 if (-not (Test-Path $exePath)) {
-    Write-Host "ERROR: sentinel.exe not found at $exePath" -ForegroundColor Red
-    Write-Host "Place sentinel.exe in this folder and re-run." -ForegroundColor Red
+    Write-Host "ERROR: dropper.exe not found at $exePath" -ForegroundColor Red
+    Write-Host "Place dropper.exe in this folder and re-run." -ForegroundColor Red
     exit 1
 }
-$logPath    = Join-Path $PSScriptRoot 'sentinel.log'
-$errPath    = Join-Path $PSScriptRoot 'sentinel.err.log'
-$pidPath    = Join-Path $PSScriptRoot '.sentinel.pid'
-Write-Host "Starting sentinel.exe service (log: $logPath)..."
+$logPath    = Join-Path $PSScriptRoot 'dropper.log'
+$errPath    = Join-Path $PSScriptRoot 'dropper.err.log'
+$pidPath    = Join-Path $PSScriptRoot '.dropper.pid'
+Write-Host "Starting dropper.exe service (log: $logPath)..."
 $proc = Start-Process -FilePath $exePath `
     -ArgumentList 'service' `
     -WorkingDirectory $PSScriptRoot `
@@ -72,20 +72,20 @@ $proc = Start-Process -FilePath $exePath `
     -PassThru
 $proc.Id | Out-File -FilePath $pidPath -Encoding ascii
 
-# 5b. Register a Task Scheduler entry so sentinel.exe restarts after reboot.
+# 5b. Register a Task Scheduler entry so dropper.exe restarts after reboot.
 #     Watch-test only path — v0.1 release will use a real Windows Service.
 #     Registers as the current user, runs at logon with highest privileges.
 #     The wrapper script preserves stdout/stderr redirection across reboots.
-$wrapperPath = Join-Path $PSScriptRoot 'sentinel-autostart.ps1'
+$wrapperPath = Join-Path $PSScriptRoot 'dropper-autostart.ps1'
 $wrapperScript = @'
-# Auto-start wrapper for Sentinel watch-test. Registered by setup.ps1.
+# Auto-start wrapper for Dropper watch-test. Registered by setup.ps1.
 # Unregistered by uninstall.ps1.
 $ErrorActionPreference = 'Continue'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$exe  = Join-Path $root 'sentinel.exe'
-$log  = Join-Path $root 'sentinel.log'
-$err  = Join-Path $root 'sentinel.err.log'
-$pidF = Join-Path $root '.sentinel.pid'
+$exe  = Join-Path $root 'dropper.exe'
+$log  = Join-Path $root 'dropper.log'
+$err  = Join-Path $root 'dropper.err.log'
+$pidF = Join-Path $root '.dropper.pid'
 if (-not (Test-Path $exe)) { exit 1 }
 $p = Start-Process -FilePath $exe -ArgumentList 'service' `
     -WorkingDirectory $root `
@@ -95,7 +95,7 @@ $p.Id | Out-File -FilePath $pidF -Encoding ascii
 '@
 Set-Content -Path $wrapperPath -Value $wrapperScript -Encoding utf8
 
-$taskName = 'SentinelWatchtest'
+$taskName = 'DropperWatchtest'
 # Drop any prior registration before re-creating, so re-running setup is idempotent.
 Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
 
@@ -110,13 +110,13 @@ Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger `
     -Principal $principal -Settings $settings | Out-Null
 Write-Host "Auto-start registered: scheduled task '$taskName' runs at logon as $env:USERNAME"
 
-# Brief health check: sentinel needs ~1s to bind ports. If it exited
+# Brief health check: dropper needs ~1s to bind ports. If it exited
 # already, surface stderr immediately so the operator isn't left guessing.
 Start-Sleep -Seconds 2
 $running = Get-Process -Id $proc.Id -ErrorAction SilentlyContinue
 if (-not $running) {
     Write-Host ""
-    Write-Host "ERROR: sentinel.exe exited within 2 seconds of starting." -ForegroundColor Red
+    Write-Host "ERROR: dropper.exe exited within 2 seconds of starting." -ForegroundColor Red
     if (Test-Path $errPath) {
         Write-Host "--- stderr ---" -ForegroundColor Red
         Get-Content $errPath
@@ -134,7 +134,7 @@ Write-Host "  - Resolver listening on 127.0.0.1:53"
 Write-Host "  - Block-page on http://127.0.0.1/"
 Write-Host ""
 Write-Host "Try: open a browser and visit a URLhaus-listed domain (or any test site)."
-Write-Host "If it is on the block-list you'll see the Sentinel block-page. If it isn't,"
+Write-Host "If it is on the block-list you'll see the Dropper block-page. If it isn't,"
 Write-Host "the site loads normally."
 Write-Host ""
 Write-Host "When done testing, run .\uninstall.ps1 from this folder to revert."

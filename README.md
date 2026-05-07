@@ -1,10 +1,10 @@
-# SENTINEL
+# DROPPER
 
 Open-source DNS shield for Windows. Runs as a local resolver on `127.0.0.1`, blocks connections to known-malicious domains using community-curated threat feeds, and serves a calm, evidence-led block-page when something is caught. All processing is local; nothing is sent to a server.
 
 > **Status:** pre-v0.1. Active scaffolding. The Rust skeleton, threat-feed updater, tray icon, installer, and block-page are being built per `TODOS.md` and `DESIGN.md`. No release artifact yet.
 
-> **v1 archive notice (2026-04-27):** the v1 Flask/Python codebase that previously lived under `sentinel-core/` is **frozen** at commit `f15b62d6` on the [`archive/v1-python`](https://github.com/MuzeenMir/sentinel/tree/archive/v1-python) branch. `git checkout archive/v1-python` to inspect, mine patterns, or revisit the v2 revamp design notes. `main` has been emptied of the v1 tree to make room for the Rust rewrite.
+> **Naming note (2026-05-07):** this DNS Shield project is now named **Dropper**. The older Sentinel server/endpoint security platform has moved back to [`MuzeenMir/sentinel`](https://github.com/MuzeenMir/sentinel).
 
 ## Direction
 

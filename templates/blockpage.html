@@ -1,8 +1,8 @@
 <!doctype html>
 <!--
-  Sentinel block-page — server-rendered static template.
+  Dropper block-page — server-rendered static template.
 
-  Source of truth: ~/.gstack/projects/MuzeenMir-sentinel/designs/blockpage-20260426/variant-C-final.html
+  Source of truth: ~/.gstack/projects/MuzeenMir-Dropper/designs/blockpage-20260426/variant-C-final.html
   Approved 2026-04-26 via /plan-design-review (variant C dark terminal).
 
   Tokens substituted by the Rust block-page server at request time:
@@ -13,7 +13,7 @@
     {{threat_type}}       — short threat label, e.g. "malware host / credential harvest"
     {{block_id}}          — 8-char hex block id (forensic trust)
     {{ts_iso}}            — RFC 3339 timestamp of this block decision
-    {{version}}           — sentinel crate version (CARGO_PKG_VERSION)
+    {{version}}           — dropper crate version (CARGO_PKG_VERSION)
 
   Deliberate constraints:
     - Zero external assets. No CDN, no Google Fonts, no remote anything. The block
@@ -26,7 +26,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>sentinel — blocked: {{domain}}</title>
+<title>dropper — blocked: {{domain}}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark light">
 <meta name="referrer" content="no-referrer">
@@ -217,7 +217,7 @@
       <path d="M12 2 L3 6 V12 C3 17 7 21 12 22 C17 21 21 17 21 12 V6 Z" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path d="M8 12 L11 15 L16 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
-    <span class="brand">sentinel</span>
+    <span class="brand">dropper</span>
     <span class="separator" aria-hidden="true">— resolver</span>
     <span class="meta">localhost &middot; listening</span>
   </div>
@@ -259,7 +259,7 @@
     <span>ts {{ts_iso}}</span>
     <span>id {{block_id}}</span>
     <span>v{{version}} &middot; MIT</span>
-    <a href="https://github.com/MuzeenMir/sentinel" target="_blank" rel="noopener noreferrer">github.com/MuzeenMir/sentinel</a>
+    <a href="https://github.com/MuzeenMir/Dropper" target="_blank" rel="noopener noreferrer">github.com/MuzeenMir/Dropper</a>
   </div>
 </main>
 </body>

@@ -1,8 +1,8 @@
-# Sentinel — Design System
+# Dropper — Design System
 
 Single source of truth for visual identity. Anchors all UI surfaces (block-page, tray icon, toast notifications, installer dialogs, future Settings UI).
 
-Extracted from `/plan-design-review` 2026-04-26, anchored to the approved block-page mockup at `~/.gstack/projects/MuzeenMir-sentinel/designs/blockpage-20260426/variant-C-final.html`.
+Extracted from `/plan-design-review` 2026-04-26, anchored to the approved block-page mockup at `~/.gstack/projects/MuzeenMir-Dropper/designs/blockpage-20260426/variant-C-final.html`.
 
 ## Voice & Tone
 
@@ -14,7 +14,7 @@ Extracted from `/plan-design-review` 2026-04-26, anchored to the approved block-
 Examples:
 - ✅ "Listed in URLhaus, a community-curated feed of active malware URLs, since 2026-04-22."
 - ✅ "Your machine never connected."
-- ✅ "Sentinel intercepted the DNS lookup on your behalf."
+- ✅ "Dropper intercepted the DNS lookup on your behalf."
 - ❌ "WARNING: Phishing attempt detected!"
 - ❌ "Don't worry, we've got this covered for you. 🛡️"
 - ❌ "Our AI-powered threat intelligence system has identified..."
@@ -119,11 +119,11 @@ All buttons:
 
 ### Terminal-Frame Chrome
 
-Sentinel's signature container: bordered panel with titlebar + body + footer.
+Dropper's signature container: bordered panel with titlebar + body + footer.
 
 ```
 +------------------------------------------------+
-| 🛡 sentinel — resolver       localhost · listen | titlebar (--bg, --rule border-bottom)
+| 🛡 dropper — resolver       localhost · listen | titlebar (--bg, --rule border-bottom)
 +------------------------------------------------+
 |                                                |
 | [body content]                                 | body (--panel, padding s-5)
@@ -134,7 +134,7 @@ Sentinel's signature container: bordered panel with titlebar + body + footer.
 ```
 
 - `border: 1px solid var(--rule); border-radius: 6px; overflow: hidden;`
-- Titlebar always shows brand identity ("sentinel" wordmark + shield) for trust ("this is your local Sentinel, not a phishing intermediary")
+- Titlebar always shows brand identity ("dropper" wordmark + shield) for trust ("this is your local Dropper, not a phishing intermediary")
 - Footer always shows: ISO timestamp, monospace block-id (forensic trust), version + license, GitHub repo link
 
 ### Key/Value Props
@@ -163,7 +163,7 @@ For showing structured data (block reason, system status, log entries).
 
 ### Verdict Pill
 
-Used to label the result of a Sentinel decision (blocked / allowed / paused). Color matches semantic meaning, not state-of-Sentinel.
+Used to label the result of a Dropper decision (blocked / allowed / paused). Color matches semantic meaning, not state-of-Dropper.
 
 ```css
 .verdict {
@@ -204,7 +204,7 @@ RED   (#c97a64) = service stopped or recovery in progress
 Amber sub-states (each shows in tooltip on hover):
 1. "Threat feeds 26h stale" (last update >24h ago)
 2. "Upstream DNS failover, using Quad9" (Cloudflare 1.1.1.1 unreachable)
-3. "VPN active, Sentinel paused" (per-adapter DNS != 127.0.0.1, v0.2 auto-pause)
+3. "VPN active, Dropper paused" (per-adapter DNS != 127.0.0.1, v0.2 auto-pause)
 4. "Block-page server failed to bind :80" (blocking still works, but explainer URL broken)
 
 SVG geometry: shield outline (stroke 1.5px) + interior fill (15% alpha for depth) + checkmark (stroke 1.5px, rounded line caps).
@@ -214,7 +214,7 @@ SVG geometry: shield outline (stroke 1.5px) + interior fill (15% alpha for depth
 Native Windows `winrt-notification` API. Fixed format:
 
 ```
-🛡 Sentinel
+🛡 Dropper
 Blocked example.com (URLhaus)
 [Why?] [Allow once] [Allow forever]
 ```
@@ -223,52 +223,52 @@ Copy library:
 
 | Event | Title | Body | Buttons |
 |-------|-------|------|---------|
-| Block | Sentinel | Blocked **{domain}** ({source}) | Why? · Allow once · Allow forever |
-| Block (long domain >40 chars) | Sentinel | Blocked **{truncated...}** ({source}) | Why? · Allow once · Allow forever |
-| Pause activated | Sentinel | Paused 5 min · resumes {time} | Resume now |
-| Service stopped | Sentinel | Service stopped — DNS restored | Open log |
-| Threat-feed stale (24h) | Sentinel | Threat feeds 24h stale · check internet | (no buttons) |
-| VPN auto-pause (v0.2) | Sentinel | Paused while {VPN} active | Pause anyway |
-| Weekly digest (v0.2, Sun 09:00) | Sentinel | Blocked **{N}** threats this week | View details |
+| Block | Dropper | Blocked **{domain}** ({source}) | Why? · Allow once · Allow forever |
+| Block (long domain >40 chars) | Dropper | Blocked **{truncated...}** ({source}) | Why? · Allow once · Allow forever |
+| Pause activated | Dropper | Paused 5 min · resumes {time} | Resume now |
+| Service stopped | Dropper | Service stopped — DNS restored | Open log |
+| Threat-feed stale (24h) | Dropper | Threat feeds 24h stale · check internet | (no buttons) |
+| VPN auto-pause (v0.2) | Dropper | Paused while {VPN} active | Pause anyway |
+| Weekly digest (v0.2, Sun 09:00) | Dropper | Blocked **{N}** threats this week | View details |
 
 Truncation rule: domain >40 chars → middle-truncated with ellipsis (`subdomain...example.com`). Native Windows toast has limited width.
 
 ## Installer Dialog Copy (NSIS)
 
-Each dialog has fixed copy. No marketing language, no "thank you for choosing Sentinel" bloat.
+Each dialog has fixed copy. No marketing language, no "thank you for choosing Dropper" bloat.
 
 ### Welcome
-**Title:** Install Sentinel v0.1.0
-**Body:** Sentinel is an open-source DNS shield for Windows. It runs as a background service and blocks connections to known-malicious domains using community-curated threat feeds. All processing is local; nothing is sent to a server.
+**Title:** Install Dropper v0.1.0
+**Body:** Dropper is an open-source DNS shield for Windows. It runs as a background service and blocks connections to known-malicious domains using community-curated threat feeds. All processing is local; nothing is sent to a server.
 **Buttons:** [Install] [Cancel]
 
 ### Port 53 conflict detected
 **Title:** Port 53 already in use
-**Body:** Sentinel needs UDP port 53 (DNS) on 127.0.0.1, but another program is using it (likely Pi-hole, Acrylic DNS Proxy, or Dnsmasq). Stop the conflicting service first, then re-run this installer.
+**Body:** Dropper needs UDP port 53 (DNS) on 127.0.0.1, but another program is using it (likely Pi-hole, Acrylic DNS Proxy, or Dnsmasq). Stop the conflicting service first, then re-run this installer.
 **Buttons:** [Quit] [Open detected service]
 
 ### Port 80 conflict detected
 **Title:** Port 80 already in use
-**Body:** Sentinel uses port 80 to serve the block-page when it sinkhole-redirects malicious sites. Another program is using it (likely IIS, nginx, or Docker Desktop). You can either stop that service, or use port 8053 instead. Block-pages will still work but the URL changes from `127.0.0.1` to `127.0.0.1:8053`.
+**Body:** Dropper uses port 80 to serve the block-page when it sinkhole-redirects malicious sites. Another program is using it (likely IIS, nginx, or Docker Desktop). You can either stop that service, or use port 8053 instead. Block-pages will still work but the URL changes from `127.0.0.1` to `127.0.0.1:8053`.
 **Buttons:** [Use 8053 instead] [Quit and fix manually]
 
 ### DNS modification consent
-**Title:** Sentinel needs to set system DNS to 127.0.0.1
-**Body:** Sentinel intercepts DNS by setting your system resolver to itself (127.0.0.1). Your current DNS server ({current_DNS}) will be saved and restored if you uninstall.
-**Buttons:** [Set DNS to Sentinel] [Cancel install]
+**Title:** Dropper needs to set system DNS to 127.0.0.1
+**Body:** Dropper intercepts DNS by setting your system resolver to itself (127.0.0.1). Your current DNS server ({current_DNS}) will be saved and restored if you uninstall.
+**Buttons:** [Set DNS to Dropper] [Cancel install]
 
 ### Install complete
-**Title:** Sentinel is installed and running
+**Title:** Dropper is installed and running
 **Body:** Look for the green shield in your system tray. You're protected starting now. Block-page on http://127.0.0.1{:port}/ when something gets caught.
 **Buttons:** [Done]
 
 ### Uninstall — preserve allowlist?
 **Title:** Keep your allowlist?
-**Body:** You added {N} domains to your personal allowlist. Keep them for next time you install Sentinel?
+**Body:** You added {N} domains to your personal allowlist. Keep them for next time you install Dropper?
 **Buttons:** [Keep allowlist] [Delete everything]
 
 ### Uninstall complete
-**Title:** Sentinel uninstalled
+**Title:** Dropper uninstalled
 **Body:** Your DNS is restored to {original_DNS}. Threat-feed cache and block log have been removed.
 **Buttons:** [Done]
 

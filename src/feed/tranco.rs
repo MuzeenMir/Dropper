@@ -4,7 +4,7 @@
 //! We pull the top tier as an allowlist anchor: even if a popular domain
 //! appears on URLhaus (compromise, hijack, false-positive on a CDN) the
 //! resolver does not blackhole it. The list shifts over time as sites
-//! rise and fall in popularity, so a long-installed Sentinel refreshes
+//! rise and fall in popularity, so a long-installed Dropper refreshes
 //! quarterly (T2 in `TODOS.md`).
 
 use std::collections::HashSet;

@@ -1,4 +1,4 @@
-// Conventional Commits for SENTINEL.
+// Conventional Commits for DROPPER.
 // Docs: https://www.conventionalcommits.org/
 // Allowed scopes track the v2 target architecture plus repo-level concerns.
 

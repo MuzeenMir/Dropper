@@ -1,4 +1,4 @@
-SENTINEL — Watch-test Quickstart (v0.1.1)
+DROPPER — Watch-test Quickstart (v0.1.1)
 ==========================================
 
 You're testing a pre-release build. Five steps. Two scripts.
@@ -7,7 +7,7 @@ You're testing a pre-release build. Five steps. Two scripts.
 2. cd into this folder (where you unzipped the bundle).
 3. Run:    .\setup.ps1
 4. Use your computer normally for a while. Browse, work, whatever.
-   If you hit a malicious site, you'll see a Sentinel block-page.
+   If you hit a malicious site, you'll see a Dropper block-page.
 5. When you want to stop testing, run:    .\uninstall.ps1
    That puts your DNS back the way it was.
 

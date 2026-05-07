@@ -1,10 +1,10 @@
-# SENTINEL — Claude Code project context
+# DROPPER — Claude Code project context
 
 Use this file for Claude Code sessions in repo. Solo-dev project: open-source DNS shield for Windows. Pre-v0.1; the Rust skeleton, threat-feed updater, tray icon, installer, and block-page are being built.
 
 ## What this is
 
-Sentinel runs as a local DNS resolver on `127.0.0.1`, blocks connections to malicious domains using URLhaus + a Tranco-anchored allowlist, and serves a calm, evidence-led block-page when something is caught. Single machine, single binary, no SaaS, no telemetry.
+Dropper runs as a local DNS resolver on `127.0.0.1`, blocks connections to malicious domains using URLhaus + a Tranco-anchored allowlist, and serves a calm, evidence-led block-page when something is caught. Single machine, single binary, no SaaS, no telemetry.
 
 Direction details + visual identity in `DESIGN.md`. Operational backlog in `TODOS.md` (T1 archive → T2 Tranco refresh → T3 DX expansion).
 
@@ -16,15 +16,13 @@ Direction details + visual identity in `DESIGN.md`. Operational backlog in `TODO
 | Operational TODOs | `TODOS.md` | Pre-v0.1 sprint, v0.1 sprint, v0.2 pre-decisions. |
 | CI workflows | `.github/workflows/` | `lint` (commitlint), `security` (gitleaks + trivy fs), `release-please`. |
 | gstack tooling | `scripts/install-gstack.sh` | Installer for the gstack skill set. Local skill artifacts are gitignored. |
-| Archive (v1 Flask/Python) | branch `archive/v1-python` | Frozen at `f15b62d6`. `git checkout archive/v1-python` to mine v1 patterns. |
+| Product name | Dropper | This DNS Shield project was renamed from Sentinel when the older Sentinel platform moved back to `MuzeenMir/sentinel`. |
 
-The Rust crate skeleton (`Cargo.toml`, `src/`, `crates/`) lands in PR-3 of the T1 slice. There is intentionally no source tree on `main` until then.
+The Rust crate lives in `Cargo.toml` and `src/`.
 
-## v1 history
+## Naming History
 
-The v1 Flask/Python codebase under `sentinel-core/` was archived 2026-04-27 (PR #5) and removed from `main` in PR T1-2. The April 2026 audit (`CODE-REVIEW-main-2026-04-18.md`) found v1 was ~60% real, ~40% scaffolding, with chronic CI failures and marketing-grade claims. Rather than fork-lift the v2 revamp, the project pivoted to a narrow, single-machine OSS DNS shield (design doc `~/.gstack/projects/MuzeenMir-sentinel/dscorp-main-design-20260425-191642.md`).
-
-If a session needs v1 patterns (audit-service, llm-gateway design notes, ML pipeline references), check out `archive/v1-python` rather than expecting them in `main`.
+The DNS Shield was originally built in the Sentinel repository. On 2026-05-07 the repository was renamed to Dropper, and the older Sentinel server/endpoint security platform was restored to `https://github.com/MuzeenMir/sentinel`.
 
 ## Conventions (non-negotiable)
 
@@ -38,8 +36,8 @@ If a session needs v1 patterns (audit-service, llm-gateway design notes, ML pipe
 
 ## Git
 
-- **Canonical remote**: `https://github.com/MuzeenMir/sentinel`. Push to `origin` → that repo unless asked otherwise.
-- **Branches**: `main` (signed, squash-merge target), `archive/v1-python` (frozen v1 history), feature branches per-PR.
+- **Canonical remote**: `https://github.com/MuzeenMir/Dropper`. Push to `origin` → that repo unless asked otherwise.
+- **Branches**: `main` (signed, squash-merge target), feature branches per-PR.
 - **Release flow**: release-please action opens release PRs from Conventional Commits on `main`. Workflow-permissions repo setting must allow GH Actions to create PRs (owner action, not code).
 
 ## gstack — Browser & QA Skills
