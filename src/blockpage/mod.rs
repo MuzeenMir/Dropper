@@ -9,11 +9,13 @@
 //! mutate; for now it logs the form payload and returns `204 No Content`.
 
 use std::net::{Ipv4Addr, SocketAddr};
+use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use axum::{
-    extract::State,
+    extract::{rejection::FormRejection, State},
     http::StatusCode,
     response::{Html, IntoResponse},
     routing::{get, post},
@@ -21,6 +23,8 @@ use axum::{
 };
 use serde::Deserialize;
 use tokio::sync::RwLock;
+
+use crate::feed::allowlist::{allow_forever, allow_once, forget, new_allowlist, AllowList};
 
 /// The compiled-in block-page template. The Rust binary is fully self-
 /// contained; the HTML never has to be read off disk at runtime.
@@ -104,18 +108,32 @@ pub(crate) fn html_escape(s: &str) -> String {
 #[derive(Clone)]
 pub struct AppState {
     pub current: Arc<RwLock<Option<BlockReason>>>,
+    pub allowlist: AllowList,
 }
 
 impl AppState {
     pub fn new() -> Self {
+        Self::with_allowlist(new_allowlist(tmp_allowlist_path()))
+    }
+
+    pub fn with_allowlist(allowlist: AllowList) -> Self {
         Self {
             current: Arc::new(RwLock::new(None)),
+            allowlist,
         }
     }
 
     pub async fn set_current(&self, reason: BlockReason) {
         *self.current.write().await = Some(reason);
     }
+}
+
+fn tmp_allowlist_path() -> PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    std::env::temp_dir().join(format!("dropper-appstate-allowlist-{nanos}.toml"))
 }
 
 impl Default for AppState {
@@ -145,14 +163,47 @@ async fn serve_block(State(state): State<AppState>) -> Html<String> {
 pub struct DecisionForm {
     pub domain: String,
     pub block_id: String,
-    pub action: String,
+    pub action: DecisionAction,
 }
 
-async fn handle_decision(Form(form): Form<DecisionForm>) -> impl IntoResponse {
-    // The resolver wires the allow-list mutation; for now we acknowledge
-    // the click so the form post resolves cleanly and the user sees the
-    // page is alive.
-    let _ = form;
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum DecisionAction {
+    KeepBlocked,
+    AllowOnce,
+    AllowForever,
+    Forget,
+}
+
+async fn handle_decision(
+    State(state): State<AppState>,
+    form: std::result::Result<Form<DecisionForm>, FormRejection>,
+) -> impl IntoResponse {
+    let Form(form) = match form {
+        Ok(form) => form,
+        Err(_) => return StatusCode::BAD_REQUEST,
+    };
+    let DecisionForm {
+        domain,
+        block_id: _,
+        action,
+    } = form;
+    match action {
+        DecisionAction::KeepBlocked => {}
+        DecisionAction::AllowOnce => allow_once(&state.allowlist, &domain).await,
+        DecisionAction::AllowForever => {
+            if let Err(e) = allow_forever(&state.allowlist, &domain).await {
+                eprintln!("allowlist: allow_forever failed: {e:#}");
+                return StatusCode::INTERNAL_SERVER_ERROR;
+            }
+        }
+        DecisionAction::Forget => {
+            if let Err(e) = forget(&state.allowlist, &domain).await {
+                eprintln!("allowlist: forget failed: {e:#}");
+                return StatusCode::INTERNAL_SERVER_ERROR;
+            }
+        }
+    }
     StatusCode::NO_CONTENT
 }
 
@@ -179,6 +230,9 @@ pub async fn serve(state: AppState) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::feed::allowlist::{
+        allow_forever as persist_allow_forever, is_allowed, load, new_allowlist,
+    };
 
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
@@ -195,6 +249,16 @@ mod tests {
             block_id: "7f3a2b91".to_string(),
             ts_iso: "2026-04-28T04:48:00Z".to_string(),
         }
+    }
+
+    fn test_allowlist_path() -> PathBuf {
+        tmp_allowlist_path()
+    }
+
+    #[tokio::test]
+    async fn appstate_default_constructs_empty_allowlist() {
+        let state = AppState::new();
+        assert!(!is_allowed(&state.allowlist, "anything.example").await);
     }
 
     #[test]
@@ -311,5 +375,106 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+    }
+
+    #[tokio::test]
+    async fn router_post_decision_allow_once_mutates_allowlist() {
+        let state = AppState::new();
+        let app = router(state.clone());
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/decision")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(
+                        "domain=phish.example&block_id=7f3a2b91&action=allow_once",
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+        assert!(is_allowed(&state.allowlist, "phish.example").await);
+    }
+
+    #[tokio::test]
+    async fn router_post_decision_allow_forever_persists_to_disk() {
+        let path = test_allowlist_path();
+        let allowlist = new_allowlist(path.clone());
+        let state = AppState::with_allowlist(allowlist);
+        let app = router(state);
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/decision")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(
+                        "domain=phish.example&block_id=7f3a2b91&action=allow_forever",
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+        assert!(path.exists());
+
+        let reloaded = new_allowlist(path.clone());
+        assert_eq!(load(&reloaded).await.unwrap(), 1);
+        assert!(is_allowed(&reloaded, "phish.example").await);
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn router_post_decision_forget_removes_from_allowlist() {
+        let path = test_allowlist_path();
+        let allowlist = new_allowlist(path.clone());
+        persist_allow_forever(&allowlist, "phish.example")
+            .await
+            .unwrap();
+        let state = AppState::with_allowlist(allowlist);
+        let app = router(state.clone());
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/decision")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(
+                        "domain=phish.example&block_id=7f3a2b91&action=forget",
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+        assert!(!is_allowed(&state.allowlist, "phish.example").await);
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn router_post_decision_rejects_unknown_action() {
+        let app = router(AppState::new());
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/decision")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(
+                        "domain=phish.example&block_id=7f3a2b91&action=nuke_from_orbit",
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     }
 }

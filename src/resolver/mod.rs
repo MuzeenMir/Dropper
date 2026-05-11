@@ -27,6 +27,7 @@ use time::OffsetDateTime;
 use tokio::net::{TcpListener, UdpSocket};
 
 use crate::blockpage::{AppState, BlockReason};
+use crate::feed::allowlist::{is_allowed, AllowList};
 use crate::feed::{lookup, BlockList, BlockMetadata};
 
 /// Sinkhole TTL — short on purpose. If the user allow-lists the domain
@@ -56,13 +57,14 @@ const FALLBACK_BIND: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST
 pub struct Resolver {
     blocklist: BlockList,
     blockpage: AppState,
+    allowlist: AllowList,
     upstream: Arc<TokioAsyncResolver>,
 }
 
 impl Resolver {
     /// Build a resolver with Cloudflare (1.1.1.1) primary +
     /// Quad9 (9.9.9.9) failover upstream.
-    pub fn new(blocklist: BlockList, blockpage: AppState) -> Self {
+    pub fn new(blocklist: BlockList, blockpage: AppState, allowlist: AllowList) -> Self {
         let mut ns = NameServerConfigGroup::cloudflare();
         ns.merge(NameServerConfigGroup::quad9());
         let cfg = ResolverConfig::from_parts(None, vec![], ns);
@@ -73,8 +75,13 @@ impl Resolver {
         Self {
             blocklist,
             blockpage,
+            allowlist,
             upstream: Arc::new(upstream),
         }
+    }
+
+    pub fn allowlist(&self) -> &AllowList {
+        &self.allowlist
     }
 }
 
@@ -94,6 +101,10 @@ impl RequestHandler for Resolver {
 
         let query = request.query();
         let domain = lower_name_to_domain(query.name());
+
+        if is_allowed(&self.allowlist, &domain).await {
+            return forward(&self.upstream, request, &mut response_handle).await;
+        }
 
         if let Some(metadata) = lookup(&self.blocklist, &domain).await {
             self.blockpage
@@ -337,7 +348,14 @@ fn empty_info() -> ResponseInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io;
+
+    use crate::feed::allowlist::{allow_forever, new_allowlist as new_user_allowlist, AllowList};
     use crate::feed::new_blocklist;
+    use hickory_proto::op::{Message, Query};
+    use hickory_proto::serialize::binary::{BinDecodable, BinDecoder, BinEncoder};
+    use hickory_server::authority::{MessageRequest, MessageResponse};
+    use hickory_server::server::Protocol;
 
     fn empty_meta() -> BlockMetadata {
         BlockMetadata::default()
@@ -347,6 +365,88 @@ mod tests {
         BlockMetadata {
             listed_date: "2026-04-22".to_string(),
             threat_type: "malware_download".to_string(),
+        }
+    }
+
+    fn tmp_allowlist() -> AllowList {
+        new_user_allowlist(std::env::temp_dir().join("dropper-resolver-test.toml"))
+    }
+
+    fn dns_request(domain: &str) -> Request {
+        let mut message = Message::new();
+        message
+            .set_id(42)
+            .set_message_type(MessageType::Query)
+            .set_op_code(OpCode::Query)
+            .set_recursion_desired(true)
+            .add_query(Query::query(
+                Name::from_ascii(domain).unwrap(),
+                RecordType::A,
+            ));
+        let bytes = message.to_vec().unwrap();
+        let mut decoder = BinDecoder::new(&bytes);
+        let request = MessageRequest::read(&mut decoder).unwrap();
+        Request::new(request, "127.0.0.1:53000".parse().unwrap(), Protocol::Udp)
+    }
+
+    async fn local_upstream_resolver() -> TokioAsyncResolver {
+        let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let addr = socket.local_addr().unwrap();
+        tokio::spawn(async move {
+            let mut buf = [0_u8; 512];
+            let (len, peer) = socket.recv_from(&mut buf).await.unwrap();
+            let request = Message::from_vec(&buf[..len]).unwrap();
+            let query = request.queries()[0].clone();
+            let answer_name = query.name().clone();
+
+            let mut response = Message::new();
+            response
+                .set_id(request.id())
+                .set_message_type(MessageType::Response)
+                .set_op_code(OpCode::Query)
+                .set_response_code(ResponseCode::NoError)
+                .set_recursion_available(true)
+                .add_query(query)
+                .add_answer(Record::from_rdata(
+                    answer_name,
+                    60,
+                    RData::A(A(Ipv4Addr::new(203, 0, 113, 7))),
+                ));
+            let bytes = response.to_vec().unwrap();
+            socket.send_to(&bytes, peer).await.unwrap();
+        });
+
+        let ns = NameServerConfigGroup::from_ips_clear(
+            &[IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            addr.port(),
+            true,
+        );
+        let cfg = ResolverConfig::from_parts(None, vec![], ns);
+        let mut opts = ResolverOpts::default();
+        opts.timeout = Duration::from_secs(1);
+        TokioAsyncResolver::tokio(cfg, opts)
+    }
+
+    #[derive(Clone, Default)]
+    struct CapturingResponse;
+
+    #[async_trait]
+    impl ResponseHandler for CapturingResponse {
+        async fn send_response<'a>(
+            &mut self,
+            response: MessageResponse<
+                '_,
+                'a,
+                impl Iterator<Item = &'a Record> + Send + 'a,
+                impl Iterator<Item = &'a Record> + Send + 'a,
+                impl Iterator<Item = &'a Record> + Send + 'a,
+                impl Iterator<Item = &'a Record> + Send + 'a,
+            >,
+        ) -> io::Result<ResponseInfo> {
+            let mut bytes = Vec::new();
+            response
+                .destructive_emit(&mut BinEncoder::new(&mut bytes))
+                .map_err(|e| io::Error::other(e.to_string()))
         }
     }
 
@@ -456,7 +556,7 @@ mod tests {
             .await
             .insert("malicious.example".to_string(), sample_meta());
         let bp = AppState::new();
-        let _r = Resolver::new(bl.clone(), bp.clone());
+        let _r = Resolver::new(bl.clone(), bp.clone(), bp.allowlist.clone());
 
         // We can't easily forge a hickory `Request` in unit tests
         // (it wraps a UDP datagram + sender), so the in-process
@@ -472,6 +572,40 @@ mod tests {
         assert_eq!(r.feed, "URLhaus");
         assert_eq!(r.listed_date, "2026-04-22");
         assert_eq!(r.threat_type, "malware download");
+    }
+
+    #[tokio::test]
+    async fn resolver_new_accepts_allowlist() {
+        let bl = new_blocklist();
+        let bp = AppState::new();
+        let allowlist = tmp_allowlist();
+
+        let resolver = Resolver::new(bl, bp, allowlist.clone());
+
+        assert!(Arc::ptr_eq(resolver.allowlist(), &allowlist));
+    }
+
+    #[tokio::test]
+    async fn allowlisted_domain_bypasses_blocklist() {
+        let bl = new_blocklist();
+        bl.write()
+            .await
+            .insert("phish.example".to_string(), sample_meta());
+        let allowlist = tmp_allowlist();
+        allow_forever(&allowlist, "phish.example").await.unwrap();
+        let bp = AppState::with_allowlist(allowlist.clone());
+        let resolver = Resolver {
+            blocklist: bl,
+            blockpage: bp.clone(),
+            allowlist,
+            upstream: Arc::new(local_upstream_resolver().await),
+        };
+
+        resolver
+            .handle_request(&dns_request("phish.example."), CapturingResponse)
+            .await;
+
+        assert!(bp.current.read().await.is_none());
     }
 
     #[tokio::test]
