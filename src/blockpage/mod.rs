@@ -24,7 +24,7 @@ use axum::{
 use serde::Deserialize;
 use tokio::sync::RwLock;
 
-use crate::feed::allowlist::{allow_once, new_allowlist, AllowList};
+use crate::feed::allowlist::{allow_forever, allow_once, new_allowlist, AllowList};
 
 /// The compiled-in block-page template. The Rust binary is fully self-
 /// contained; the HTML never has to be read off disk at runtime.
@@ -170,8 +170,15 @@ async fn handle_decision(
     State(state): State<AppState>,
     Form(form): Form<DecisionForm>,
 ) -> impl IntoResponse {
-    if form.action == "allow_once" {
-        allow_once(&state.allowlist, &form.domain).await;
+    match form.action.as_str() {
+        "allow_once" => allow_once(&state.allowlist, &form.domain).await,
+        "allow_forever" => {
+            if let Err(e) = allow_forever(&state.allowlist, &form.domain).await {
+                eprintln!("allowlist: allow_forever failed: {e:#}");
+                return StatusCode::INTERNAL_SERVER_ERROR;
+            }
+        }
+        _ => {}
     }
     let _ = form.block_id;
     StatusCode::NO_CONTENT
@@ -200,7 +207,7 @@ pub async fn serve(state: AppState) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::feed::allowlist::is_allowed;
+    use crate::feed::allowlist::{is_allowed, load, new_allowlist};
 
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
@@ -217,6 +224,10 @@ mod tests {
             block_id: "7f3a2b91".to_string(),
             ts_iso: "2026-04-28T04:48:00Z".to_string(),
         }
+    }
+
+    fn test_allowlist_path() -> PathBuf {
+        tmp_allowlist_path()
     }
 
     #[tokio::test]
@@ -361,5 +372,35 @@ mod tests {
 
         assert_eq!(resp.status(), StatusCode::NO_CONTENT);
         assert!(is_allowed(&state.allowlist, "phish.example").await);
+    }
+
+    #[tokio::test]
+    async fn router_post_decision_allow_forever_persists_to_disk() {
+        let path = test_allowlist_path();
+        let allowlist = new_allowlist(path.clone());
+        let state = AppState::with_allowlist(allowlist);
+        let app = router(state);
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/decision")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(
+                        "domain=phish.example&block_id=7f3a2b91&action=allow_forever",
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+        assert!(path.exists());
+
+        let reloaded = new_allowlist(path.clone());
+        assert_eq!(load(&reloaded).await.unwrap(), 1);
+        assert!(is_allowed(&reloaded, "phish.example").await);
+
+        let _ = std::fs::remove_file(&path);
     }
 }
