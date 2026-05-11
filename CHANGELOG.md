@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/MuzeenMir/Dropper/compare/v0.1.3...v0.1.4) (2026-05-11)
+
+
+### Bug Fixes
+
+* **release:** sync version drift to 0.1.3 ([#29](https://github.com/MuzeenMir/Dropper/issues/29)) ([d83eae2](https://github.com/MuzeenMir/Dropper/commit/d83eae246fe6a82f489fe4fec7e24fe338ce45f9))
+
 ## [0.1.3](https://github.com/MuzeenMir/Dropper/compare/v0.1.2...v0.1.3) (2026-05-07)
 
 
