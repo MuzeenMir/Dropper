@@ -9,7 +9,9 @@
 //! mutate; for now it logs the form payload and returns `204 No Content`.
 
 use std::net::{Ipv4Addr, SocketAddr};
+use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use axum::{
@@ -21,6 +23,8 @@ use axum::{
 };
 use serde::Deserialize;
 use tokio::sync::RwLock;
+
+use crate::feed::allowlist::{new_allowlist, AllowList};
 
 /// The compiled-in block-page template. The Rust binary is fully self-
 /// contained; the HTML never has to be read off disk at runtime.
@@ -104,18 +108,32 @@ pub(crate) fn html_escape(s: &str) -> String {
 #[derive(Clone)]
 pub struct AppState {
     pub current: Arc<RwLock<Option<BlockReason>>>,
+    pub allowlist: AllowList,
 }
 
 impl AppState {
     pub fn new() -> Self {
+        Self::with_allowlist(new_allowlist(tmp_allowlist_path()))
+    }
+
+    pub fn with_allowlist(allowlist: AllowList) -> Self {
         Self {
             current: Arc::new(RwLock::new(None)),
+            allowlist,
         }
     }
 
     pub async fn set_current(&self, reason: BlockReason) {
         *self.current.write().await = Some(reason);
     }
+}
+
+fn tmp_allowlist_path() -> PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    std::env::temp_dir().join(format!("dropper-appstate-allowlist-{nanos}.toml"))
 }
 
 impl Default for AppState {
@@ -179,6 +197,7 @@ pub async fn serve(state: AppState) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::feed::allowlist::is_allowed;
 
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
@@ -195,6 +214,12 @@ mod tests {
             block_id: "7f3a2b91".to_string(),
             ts_iso: "2026-04-28T04:48:00Z".to_string(),
         }
+    }
+
+    #[tokio::test]
+    async fn appstate_default_constructs_empty_allowlist() {
+        let state = AppState::new();
+        assert!(!is_allowed(&state.allowlist, "anything.example").await);
     }
 
     #[test]
