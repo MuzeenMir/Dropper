@@ -27,6 +27,7 @@ use time::OffsetDateTime;
 use tokio::net::{TcpListener, UdpSocket};
 
 use crate::blockpage::{AppState, BlockReason};
+use crate::feed::allowlist::AllowList;
 use crate::feed::{lookup, BlockList, BlockMetadata};
 
 /// Sinkhole TTL — short on purpose. If the user allow-lists the domain
@@ -56,13 +57,14 @@ const FALLBACK_BIND: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST
 pub struct Resolver {
     blocklist: BlockList,
     blockpage: AppState,
+    allowlist: AllowList,
     upstream: Arc<TokioAsyncResolver>,
 }
 
 impl Resolver {
     /// Build a resolver with Cloudflare (1.1.1.1) primary +
     /// Quad9 (9.9.9.9) failover upstream.
-    pub fn new(blocklist: BlockList, blockpage: AppState) -> Self {
+    pub fn new(blocklist: BlockList, blockpage: AppState, allowlist: AllowList) -> Self {
         let mut ns = NameServerConfigGroup::cloudflare();
         ns.merge(NameServerConfigGroup::quad9());
         let cfg = ResolverConfig::from_parts(None, vec![], ns);
@@ -73,8 +75,13 @@ impl Resolver {
         Self {
             blocklist,
             blockpage,
+            allowlist,
             upstream: Arc::new(upstream),
         }
+    }
+
+    pub fn allowlist(&self) -> &AllowList {
+        &self.allowlist
     }
 }
 
@@ -337,6 +344,7 @@ fn empty_info() -> ResponseInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::feed::allowlist::new_allowlist as new_user_allowlist;
     use crate::feed::new_blocklist;
 
     fn empty_meta() -> BlockMetadata {
@@ -456,7 +464,7 @@ mod tests {
             .await
             .insert("malicious.example".to_string(), sample_meta());
         let bp = AppState::new();
-        let _r = Resolver::new(bl.clone(), bp.clone());
+        let _r = Resolver::new(bl.clone(), bp.clone(), bp.allowlist.clone());
 
         // We can't easily forge a hickory `Request` in unit tests
         // (it wraps a UDP datagram + sender), so the in-process
@@ -472,6 +480,17 @@ mod tests {
         assert_eq!(r.feed, "URLhaus");
         assert_eq!(r.listed_date, "2026-04-22");
         assert_eq!(r.threat_type, "malware download");
+    }
+
+    #[tokio::test]
+    async fn resolver_new_accepts_allowlist() {
+        let bl = new_blocklist();
+        let bp = AppState::new();
+        let allowlist = new_user_allowlist(std::env::temp_dir().join("dropper-resolver-test.toml"));
+
+        let resolver = Resolver::new(bl, bp, allowlist.clone());
+
+        assert!(Arc::ptr_eq(resolver.allowlist(), &allowlist));
     }
 
     #[tokio::test]

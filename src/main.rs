@@ -64,7 +64,11 @@ fn run_service() -> Result<()> {
         let blocklist = new_blocklist();
         let blockpage = AppState::new();
 
-        let resolver = Resolver::new(blocklist.clone(), blockpage.clone());
+        let resolver = Resolver::new(
+            blocklist.clone(),
+            blockpage.clone(),
+            blockpage.allowlist.clone(),
+        );
 
         // All three tasks should run for the lifetime of the process. If
         // any returns we propagate so the supervisor (Windows service /
