@@ -15,7 +15,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use axum::{
-    extract::State,
+    extract::{rejection::FormRejection, State},
     http::StatusCode,
     response::{Html, IntoResponse},
     routing::{get, post},
@@ -163,30 +163,47 @@ async fn serve_block(State(state): State<AppState>) -> Html<String> {
 pub struct DecisionForm {
     pub domain: String,
     pub block_id: String,
-    pub action: String,
+    pub action: DecisionAction,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum DecisionAction {
+    KeepBlocked,
+    AllowOnce,
+    AllowForever,
+    Forget,
 }
 
 async fn handle_decision(
     State(state): State<AppState>,
-    Form(form): Form<DecisionForm>,
+    form: std::result::Result<Form<DecisionForm>, FormRejection>,
 ) -> impl IntoResponse {
-    match form.action.as_str() {
-        "allow_once" => allow_once(&state.allowlist, &form.domain).await,
-        "allow_forever" => {
-            if let Err(e) = allow_forever(&state.allowlist, &form.domain).await {
+    let Form(form) = match form {
+        Ok(form) => form,
+        Err(_) => return StatusCode::BAD_REQUEST,
+    };
+    let DecisionForm {
+        domain,
+        block_id: _,
+        action,
+    } = form;
+    match action {
+        DecisionAction::KeepBlocked => {}
+        DecisionAction::AllowOnce => allow_once(&state.allowlist, &domain).await,
+        DecisionAction::AllowForever => {
+            if let Err(e) = allow_forever(&state.allowlist, &domain).await {
                 eprintln!("allowlist: allow_forever failed: {e:#}");
                 return StatusCode::INTERNAL_SERVER_ERROR;
             }
         }
-        "forget" => {
-            if let Err(e) = forget(&state.allowlist, &form.domain).await {
+        DecisionAction::Forget => {
+            if let Err(e) = forget(&state.allowlist, &domain).await {
                 eprintln!("allowlist: forget failed: {e:#}");
                 return StatusCode::INTERNAL_SERVER_ERROR;
             }
         }
-        _ => {}
     }
-    let _ = form.block_id;
     StatusCode::NO_CONTENT
 }
 
@@ -439,5 +456,25 @@ mod tests {
         assert!(!is_allowed(&state.allowlist, "phish.example").await);
 
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn router_post_decision_rejects_unknown_action() {
+        let app = router(AppState::new());
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/decision")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(
+                        "domain=phish.example&block_id=7f3a2b91&action=nuke_from_orbit",
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     }
 }
