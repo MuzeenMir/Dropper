@@ -24,7 +24,7 @@ use axum::{
 use serde::Deserialize;
 use tokio::sync::RwLock;
 
-use crate::feed::allowlist::{allow_forever, allow_once, new_allowlist, AllowList};
+use crate::feed::allowlist::{allow_forever, allow_once, forget, new_allowlist, AllowList};
 
 /// The compiled-in block-page template. The Rust binary is fully self-
 /// contained; the HTML never has to be read off disk at runtime.
@@ -178,6 +178,12 @@ async fn handle_decision(
                 return StatusCode::INTERNAL_SERVER_ERROR;
             }
         }
+        "forget" => {
+            if let Err(e) = forget(&state.allowlist, &form.domain).await {
+                eprintln!("allowlist: forget failed: {e:#}");
+                return StatusCode::INTERNAL_SERVER_ERROR;
+            }
+        }
         _ => {}
     }
     let _ = form.block_id;
@@ -207,7 +213,9 @@ pub async fn serve(state: AppState) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::feed::allowlist::{is_allowed, load, new_allowlist};
+    use crate::feed::allowlist::{
+        allow_forever as persist_allow_forever, is_allowed, load, new_allowlist,
+    };
 
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
@@ -400,6 +408,35 @@ mod tests {
         let reloaded = new_allowlist(path.clone());
         assert_eq!(load(&reloaded).await.unwrap(), 1);
         assert!(is_allowed(&reloaded, "phish.example").await);
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn router_post_decision_forget_removes_from_allowlist() {
+        let path = test_allowlist_path();
+        let allowlist = new_allowlist(path.clone());
+        persist_allow_forever(&allowlist, "phish.example")
+            .await
+            .unwrap();
+        let state = AppState::with_allowlist(allowlist);
+        let app = router(state.clone());
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/decision")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(
+                        "domain=phish.example&block_id=7f3a2b91&action=forget",
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+        assert!(!is_allowed(&state.allowlist, "phish.example").await);
 
         let _ = std::fs::remove_file(&path);
     }
