@@ -24,7 +24,7 @@ use axum::{
 use serde::Deserialize;
 use tokio::sync::RwLock;
 
-use crate::feed::allowlist::{new_allowlist, AllowList};
+use crate::feed::allowlist::{allow_once, new_allowlist, AllowList};
 
 /// The compiled-in block-page template. The Rust binary is fully self-
 /// contained; the HTML never has to be read off disk at runtime.
@@ -166,11 +166,14 @@ pub struct DecisionForm {
     pub action: String,
 }
 
-async fn handle_decision(Form(form): Form<DecisionForm>) -> impl IntoResponse {
-    // The resolver wires the allow-list mutation; for now we acknowledge
-    // the click so the form post resolves cleanly and the user sees the
-    // page is alive.
-    let _ = form;
+async fn handle_decision(
+    State(state): State<AppState>,
+    Form(form): Form<DecisionForm>,
+) -> impl IntoResponse {
+    if form.action == "allow_once" {
+        allow_once(&state.allowlist, &form.domain).await;
+    }
+    let _ = form.block_id;
     StatusCode::NO_CONTENT
 }
 
@@ -336,5 +339,27 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+    }
+
+    #[tokio::test]
+    async fn router_post_decision_allow_once_mutates_allowlist() {
+        let state = AppState::new();
+        let app = router(state.clone());
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/decision")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(
+                        "domain=phish.example&block_id=7f3a2b91&action=allow_once",
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+        assert!(is_allowed(&state.allowlist, "phish.example").await);
     }
 }
