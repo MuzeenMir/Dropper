@@ -318,15 +318,24 @@ fn relative_days_ago(yyyy_mm_dd: &str) -> Option<String> {
     }
 }
 
-/// 8-char hex block id derived from the current nanosecond clock.
-/// Cheap, monotonic enough for human-readable forensic logs; uuid
-/// crate is overkill at this layer.
+/// 8-char hex block id from the OS RNG.
+///
+/// Besides being the forensic-trust footer field, the block_id is the
+/// capability the decision endpoint requires before mutating the
+/// allow-list — a cross-origin POST that can't read the page can't learn
+/// it. A timestamp would be guessable; this must be random. Falls back to
+/// the nanosecond clock only if the OS RNG is unavailable (decisions for
+/// that block are then guessable, but blocking itself is unaffected).
 fn short_block_id() -> String {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.subsec_nanos() ^ (d.as_secs() as u32))
-        .unwrap_or(0);
-    format!("{:08x}", nanos)
+    let mut buf = [0_u8; 4];
+    if getrandom::fill(&mut buf).is_err() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.subsec_nanos() ^ (d.as_secs() as u32))
+            .unwrap_or(0);
+        return format!("{nanos:08x}");
+    }
+    format!("{:08x}", u32::from_le_bytes(buf))
 }
 
 /// RFC 3339 timestamp for the block-page `ts_iso` field.

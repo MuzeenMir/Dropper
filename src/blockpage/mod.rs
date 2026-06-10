@@ -16,7 +16,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{Context, Result};
 use axum::{
     extract::{rejection::FormRejection, State},
-    http::StatusCode,
+    http::{header, HeaderMap, StatusCode},
     response::{Html, IntoResponse},
     routing::{get, post},
     Form, Router,
@@ -175,19 +175,68 @@ pub enum DecisionAction {
     Forget,
 }
 
+/// True when the header value's authority is the loopback the block-page
+/// serves on. Used for the Host header (DNS-rebinding defense: a page at
+/// `evil.example` rebound to 127.0.0.1 still sends `Host: evil.example`)
+/// and the Origin header (cross-site defense: a form POST fired from
+/// another site sends its own origin).
+fn loopback_authority(value: &str) -> bool {
+    let rest = value.strip_prefix("http://").unwrap_or(value);
+    let authority = rest.split('/').next().unwrap_or("");
+    let host = authority
+        .rsplit_once(':')
+        .map(|(h, _)| h)
+        .unwrap_or(authority);
+    host == "127.0.0.1" || host == "localhost"
+}
+
+/// Reject requests whose Host or Origin names a non-loopback authority.
+/// Absent headers pass: browsers always send Host (and Origin on POST), so
+/// the attack paths are covered, while bare local clients (curl, tests)
+/// stay usable.
+fn from_local_page(headers: &HeaderMap) -> bool {
+    for name in [header::HOST, header::ORIGIN] {
+        if let Some(v) = headers.get(&name) {
+            match v.to_str() {
+                Ok(s) if loopback_authority(s) => {}
+                _ => return false,
+            }
+        }
+    }
+    true
+}
+
 async fn handle_decision(
     State(state): State<AppState>,
+    headers: HeaderMap,
     form: std::result::Result<Form<DecisionForm>, FormRejection>,
 ) -> impl IntoResponse {
+    if !from_local_page(&headers) {
+        return StatusCode::FORBIDDEN;
+    }
     let Form(form) = match form {
         Ok(form) => form,
         Err(_) => return StatusCode::BAD_REQUEST,
     };
     let DecisionForm {
         domain,
-        block_id: _,
+        block_id,
         action,
     } = form;
+    // The decision must reference the block the page is currently showing:
+    // same domain AND the unguessable block_id the resolver minted for it.
+    // Anything else (no recent block, stale id, forged domain) mutates
+    // nothing — this is what stops a cross-origin POST from allow-listing
+    // an arbitrary domain.
+    let legitimate = state
+        .current
+        .read()
+        .await
+        .as_ref()
+        .is_some_and(|c| c.domain == domain && c.block_id == block_id);
+    if !legitimate {
+        return StatusCode::FORBIDDEN;
+    }
     match action {
         DecisionAction::KeepBlocked => {}
         DecisionAction::AllowOnce => allow_once(&state.allowlist, &domain).await,
@@ -358,9 +407,20 @@ mod tests {
         assert!(body_str.contains("7f3a2b91"));
     }
 
+    /// A `BlockReason` for `domain`, with the sample block_id, so tests can
+    /// arm the current-block slot the decision endpoint validates against.
+    fn reason_for(domain: &str) -> BlockReason {
+        BlockReason {
+            domain: domain.to_string(),
+            ..sample_reason()
+        }
+    }
+
     #[tokio::test]
     async fn router_post_decision_returns_204() {
-        let app = router(AppState::new());
+        let state = AppState::new();
+        state.set_current(sample_reason()).await;
+        let app = router(state);
         let resp = app
             .oneshot(
                 Request::builder()
@@ -380,6 +440,7 @@ mod tests {
     #[tokio::test]
     async fn router_post_decision_allow_once_mutates_allowlist() {
         let state = AppState::new();
+        state.set_current(reason_for("phish.example")).await;
         let app = router(state.clone());
         let resp = app
             .oneshot(
@@ -404,6 +465,7 @@ mod tests {
         let path = test_allowlist_path();
         let allowlist = new_allowlist(path.clone());
         let state = AppState::with_allowlist(allowlist);
+        state.set_current(reason_for("phish.example")).await;
         let app = router(state);
         let resp = app
             .oneshot(
@@ -437,6 +499,7 @@ mod tests {
             .await
             .unwrap();
         let state = AppState::with_allowlist(allowlist);
+        state.set_current(reason_for("phish.example")).await;
         let app = router(state.clone());
         let resp = app
             .oneshot(
@@ -476,5 +539,150 @@ mod tests {
             .unwrap();
 
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    }
+
+    // --- decision endpoint anti-CSRF: the four attack paths -----------------
+
+    fn decision_post(body: &str) -> Request<Body> {
+        Request::builder()
+            .method("POST")
+            .uri("/decision")
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(Body::from(body.to_string()))
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn decision_with_no_current_block_is_forbidden() {
+        let state = AppState::new();
+        let app = router(state.clone());
+        let resp = app
+            .oneshot(decision_post(
+                "domain=phish.example&block_id=7f3a2b91&action=allow_forever",
+            ))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        assert!(!is_allowed(&state.allowlist, "phish.example").await);
+    }
+
+    #[tokio::test]
+    async fn decision_for_domain_other_than_current_block_is_forbidden() {
+        // Cross-origin POST trying to allow-list a domain that is not the
+        // one currently sinkholed.
+        let state = AppState::new();
+        state.set_current(reason_for("phish.example")).await;
+        let app = router(state.clone());
+        let resp = app
+            .oneshot(decision_post(
+                "domain=evil-c2.example&block_id=7f3a2b91&action=allow_forever",
+            ))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        assert!(!is_allowed(&state.allowlist, "evil-c2.example").await);
+    }
+
+    #[tokio::test]
+    async fn decision_with_wrong_block_id_is_forbidden() {
+        // Right domain, guessed/stale block_id — the capability check fails.
+        let state = AppState::new();
+        state.set_current(reason_for("phish.example")).await;
+        let app = router(state.clone());
+        let resp = app
+            .oneshot(decision_post(
+                "domain=phish.example&block_id=00000000&action=allow_once",
+            ))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        assert!(!is_allowed(&state.allowlist, "phish.example").await);
+    }
+
+    #[tokio::test]
+    async fn decision_from_foreign_origin_is_forbidden() {
+        // Classic cross-site form POST: Origin names the attacker's site.
+        let state = AppState::new();
+        state.set_current(reason_for("phish.example")).await;
+        let app = router(state.clone());
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/decision")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .header("origin", "https://attacker.example")
+                    .header("host", "127.0.0.1")
+                    .body(Body::from(
+                        "domain=phish.example&block_id=7f3a2b91&action=allow_forever",
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        assert!(!is_allowed(&state.allowlist, "phish.example").await);
+    }
+
+    #[tokio::test]
+    async fn decision_with_rebound_host_is_forbidden() {
+        // DNS rebinding: attacker.example resolves to 127.0.0.1, so the
+        // request reaches us but Host still names the attacker's domain.
+        let state = AppState::new();
+        state.set_current(reason_for("phish.example")).await;
+        let app = router(state.clone());
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/decision")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .header("host", "attacker.example")
+                    .body(Body::from(
+                        "domain=phish.example&block_id=7f3a2b91&action=allow_forever",
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        assert!(!is_allowed(&state.allowlist, "phish.example").await);
+    }
+
+    #[tokio::test]
+    async fn decision_from_loopback_origin_and_host_is_allowed() {
+        // The legitimate path: the block-page's own form post.
+        let state = AppState::new();
+        state.set_current(reason_for("phish.example")).await;
+        let app = router(state.clone());
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/decision")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .header("origin", "http://127.0.0.1:8053")
+                    .header("host", "127.0.0.1:8053")
+                    .body(Body::from(
+                        "domain=phish.example&block_id=7f3a2b91&action=allow_once",
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+        assert!(is_allowed(&state.allowlist, "phish.example").await);
+    }
+
+    #[test]
+    fn loopback_authority_accepts_local_and_rejects_foreign() {
+        assert!(loopback_authority("127.0.0.1"));
+        assert!(loopback_authority("127.0.0.1:8053"));
+        assert!(loopback_authority("localhost:80"));
+        assert!(loopback_authority("http://127.0.0.1:8053"));
+        assert!(!loopback_authority("attacker.example"));
+        assert!(!loopback_authority("https://attacker.example"));
+        assert!(!loopback_authority("127.0.0.1.attacker.example"));
+        assert!(!loopback_authority("http://localhost.attacker.example"));
     }
 }

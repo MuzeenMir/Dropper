@@ -216,6 +216,7 @@ dependencies = [
  "async-trait",
  "axum",
  "dirs",
+ "getrandom 0.3.4",
  "hickory-proto",
  "hickory-resolver",
  "hickory-server",
