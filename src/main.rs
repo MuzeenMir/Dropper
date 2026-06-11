@@ -4,10 +4,12 @@
 // the v0.1 sprint work tracked in TODOS.md. `service` (this PR) starts
 // the resolver + block-page server on the local machine.
 
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 use anyhow::Result;
 use dropper::blockpage::AppState;
+use dropper::feed::allowlist::{load, new_allowlist};
 use dropper::feed::{new_blocklist, run_urlhaus_refresher};
 use dropper::resolver::{self, Resolver};
 
@@ -62,9 +64,13 @@ fn run_service() -> Result<()> {
         .build()?;
     rt.block_on(async {
         let blocklist = new_blocklist();
-        let blockpage = AppState::new();
+        let allowlist = new_allowlist(allowlist_persist_path());
+        if let Err(e) = load(&allowlist).await {
+            eprintln!("allowlist: load failed, starting empty: {e:#}");
+        }
+        let blockpage = AppState::with_allowlist(allowlist.clone());
 
-        let resolver = Resolver::new(blocklist.clone(), blockpage.clone());
+        let resolver = Resolver::new(blocklist.clone(), blockpage.clone(), allowlist);
 
         // All three tasks should run for the lifetime of the process. If
         // any returns we propagate so the supervisor (Windows service /
@@ -92,4 +98,24 @@ fn run_service() -> Result<()> {
             },
         }
     })
+}
+
+fn allowlist_persist_path() -> PathBuf {
+    dirs::config_dir()
+        .map(|d| d.join("dropper").join("allowlist.toml"))
+        .unwrap_or_else(|| PathBuf::from("allowlist.toml"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn allowlist_persist_path_uses_allowlist_toml() {
+        let path = allowlist_persist_path();
+        assert!(path.ends_with("allowlist.toml"));
+        if dirs::config_dir().is_some() {
+            assert!(path.ends_with(std::path::Path::new("dropper").join("allowlist.toml")));
+        }
+    }
 }
