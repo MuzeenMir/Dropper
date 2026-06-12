@@ -1,0 +1,52 @@
+name: a11y
+
+# Block-page accessibility gate (Td-4, locked in /plan-design-review P6.1).
+# The block-page is the trust artifact: silent contrast/keyboard/ARIA
+# regressions exclude screen-reader users from understanding why their
+# connection failed. DESIGN.md sets the spec; this keeps it honest.
+#
+# Renders the template with fixture values (same string substitution as
+# src/blockpage/mod.rs render()) and fails on any WCAG 2.1 AA violation.
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "src/blockpage/**"
+      - "templates/**"
+      - ".github/workflows/a11y.yml"
+      - ".github/scripts/render-blockpage-fixture.mjs"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "src/blockpage/**"
+      - "templates/**"
+      - ".github/workflows/a11y.yml"
+      - ".github/scripts/render-blockpage-fixture.mjs"
+
+concurrency:
+  group: a11y-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  a11y-axe-blockpage:
+    name: a11y-axe-blockpage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Render block-page with fixture values
+        run: node .github/scripts/render-blockpage-fixture.mjs templates/blockpage.html "$RUNNER_TEMP/blockpage-rendered.html"
+      - name: Run axe-core (WCAG 2.1 AA)
+        run: >
+          npx --yes @axe-core/cli@4.10.2
+          --chromedriver-path "$CHROMEWEBDRIVER/chromedriver"
+          --tags wcag2a,wcag2aa,wcag21aa
+          --exit
+          "file://$RUNNER_TEMP/blockpage-rendered.html"
