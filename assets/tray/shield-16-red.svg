@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" role="img" aria-label="Dropper stopped">
+  <path d="M12 2 L3 6 V12 C3 17 7 21 12 22 C17 21 21 17 21 12 V6 Z" fill="none" stroke="#c97a64" stroke-width="1.5"/>
+  <path d="M8 12 L11 15 L16 9" fill="none" stroke="#c97a64" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
