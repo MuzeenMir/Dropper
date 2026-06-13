@@ -147,8 +147,8 @@
     color: var(--muted);
   }
   .props .row { margin: 4px 0; }
-  .props .key { color: var(--muted); display: inline-block; min-width: 90px; }
-  .props .val { color: var(--fg); }
+  .props dt.key { color: var(--muted); display: inline-block; min-width: 90px; margin: 0; font-weight: inherit; }
+  .props dd.val { color: var(--fg); display: inline; margin: 0; }
   .props .val.feed { color: var(--accent); }
   .props .val.warn { color: var(--warn); }
   .actions {
@@ -229,11 +229,11 @@
     <h1 id="blocked-domain">{{domain}}</h1>
 
     <dl class="props" aria-label="Block reason">
-      <div class="row"><span class="key">feed</span> <span class="val feed">{{feed}}</span></div>
-      <div class="row"><span class="key">listed</span> <span class="val">{{listed_date}} {{listed_relative}}</span></div>
-      <div class="row"><span class="key">type</span> <span class="val warn">{{threat_type}}</span></div>
-      <div class="row"><span class="key">action</span> <span class="val">sinkhole &rarr; 127.0.0.1</span></div>
-      <div class="row"><span class="key">your machine</span> <span class="val">never connected</span></div>
+      <div class="row"><dt class="key">feed</dt> <dd class="val feed">{{feed}}</dd></div>
+      <div class="row"><dt class="key">listed</dt> <dd class="val">{{listed_date}} {{listed_relative}}</dd></div>
+      <div class="row"><dt class="key">type</dt> <dd class="val warn">{{threat_type}}</dd></div>
+      <div class="row"><dt class="key">action</dt> <dd class="val">sinkhole &rarr; 127.0.0.1</dd></div>
+      <div class="row"><dt class="key">your machine</dt> <dd class="val">never connected</dd></div>
     </dl>
 
     <div class="actions">
