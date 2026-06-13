@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.5](https://github.com/MuzeenMir/Dropper/compare/v0.1.4...v0.1.5) (2026-06-13)
+
+
+### Features
+
+* **resolver:** wire allowlist decisions ([#31](https://github.com/MuzeenMir/Dropper/issues/31)) ([f92a63d](https://github.com/MuzeenMir/Dropper/commit/f92a63d0397f4ec2de5496f8c1109ac476fa4522))
+* **tray:** add shield tray icon SVGs (3 sizes x 3 states) per DESIGN.md spec ([#33](https://github.com/MuzeenMir/Dropper/issues/33)) ([e8622f2](https://github.com/MuzeenMir/Dropper/commit/e8622f22137694e5b63a3237ccc6b2d09b880846))
+
 ## [0.1.4](https://github.com/MuzeenMir/Dropper/compare/v0.1.3...v0.1.4) (2026-05-11)
 
 
