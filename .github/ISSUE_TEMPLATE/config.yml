@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & ideas
+    url: https://github.com/MuzeenMir/Dropper/discussions
+    about: Setup help, "how does it work?", and open-ended ideas live in Discussions — not the issue tracker.
+  - name: Report a security vulnerability
+    url: https://github.com/MuzeenMir/Dropper/security/advisories/new
+    about: Please report vulnerabilities privately via a security advisory, not a public issue.

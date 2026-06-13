@@ -1,0 +1,57 @@
+name: False-positive report
+description: A legitimate domain is being blocked by Dropper that shouldn't be.
+title: "fp: <domain>"
+labels: ["false-positive", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Dropper blocks domains listed on threat feeds (URLhaus) outside a Tranco-anchored allowlist. False positives happen — thanks for reporting so we can tune the allowlist.
+
+        The block-page for the domain shows the **feed**, **listed date**, **block id**, and **threat type**. Copying those here makes triage fast.
+  - type: input
+    id: domain
+    attributes:
+      label: Blocked domain
+      description: The exact hostname Dropper blocked.
+      placeholder: "example.com"
+    validations:
+      required: true
+  - type: input
+    id: feed
+    attributes:
+      label: Feed shown on the block-page
+      placeholder: "URLhaus"
+    validations:
+      required: false
+  - type: input
+    id: block-id
+    attributes:
+      label: Block id
+      description: The 8-char hex id from the block-page footer (forensic trust).
+      placeholder: "a1b2c3d4"
+    validations:
+      required: false
+  - type: textarea
+    id: why-legit
+    attributes:
+      label: Why this domain is legitimate
+      description: What is it? Your own site, a well-known service, a vendor you use, etc.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Dropper version
+      placeholder: "dropper 0.1.5"
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I confirmed the domain is genuinely safe (not a look-alike / typosquat).
+          required: true
+        - label: I searched existing false-positive reports for this domain.
+          required: true
