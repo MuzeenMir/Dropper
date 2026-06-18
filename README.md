@@ -39,6 +39,8 @@ cargo build --release          # binary at target/release/dropper
 cargo run -- --help            # see available commands
 ```
 
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full dev loop.
+
 ## Direction
 
 A single-machine, single-purpose security tool aimed at users underserved by enterprise EDR/XDR products: home labs, indie devs, small studios, anyone who wants malicious-domain blocking without the SaaS console, the data exfil, or the per-seat bill.
@@ -60,6 +62,7 @@ Dropper is built to be inspected, not trusted on faith:
 - **MIT-licensed**, fully open source. Read the resolver, the feed updater, and the block-page logic directly.
 - **Signed releases.** Binaries are cosign-signed; verify before running (see [Install](#download-at-v01-launch)).
 - **Questions?** See the **[FAQ](FAQ.md)** — DNS cache, DoH bypass, VPN behavior, false positives, and platform timelines.
+- **Found a vulnerability?** Report it privately — see [`SECURITY.md`](SECURITY.md).
 
 ## Repository layout
 
@@ -81,7 +84,7 @@ Dropper is built to be inspected, not trusted on faith:
 - Conventional Commits required (`commitlint.config.js`).
 - Squash-merge only; signed commits required on `main`.
 - `CODEOWNERS` gates review (solo-dev phase: everything routes to `@MuzeenMir`).
-- Local dev loop: `cargo build --release` / `cargo run -- --help` (see [Build from source](#build-from-source)).
+- Full contributor guide: [`CONTRIBUTING.md`](CONTRIBUTING.md) — dev loop, tests, and CI gates.
 
 ## License
 
