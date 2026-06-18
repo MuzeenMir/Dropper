@@ -6,6 +6,7 @@
 //! lands per the `TODOS.md` v0.1 checklist.
 
 pub mod blockpage;
+pub mod errors;
 pub mod feed;
 pub mod resolver;
 
