@@ -1,7 +1,10 @@
 name: rust
 
 # Rust skeleton CI. Runs cargo fmt, clippy, build, and test on Linux + Windows.
-# macOS is deferred to v2.0+ per DESIGN.md / TODOS.md platform gate.
+# macOS full build/test is deferred to v2.0+ per DESIGN.md / TODOS.md platform
+# gate, but `rust-cross-check` runs `cargo check --lib` on Linux + macOS so the
+# cross-platform library keeps compiling ahead of the v0.4 Linux / v2.0 macOS
+# targets advertised in FAQ.md.
 # Aggregator job `rust` is the gate intended for branch protection.
 
 on:
@@ -64,22 +67,42 @@ jobs:
       - name: Smoke (--version)
         run: cargo run --quiet -- --version
 
+  rust-cross-check:
+    name: rust-cross-check
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # Library-only sanity: the resolver/feed/blockpage lib must keep
+      # compiling on Linux + macOS even though the shipping binary targets
+      # Windows first. Catches accidental platform-specific regressions early.
+      - name: cargo check --lib
+        run: cargo check --lib --all-features
+
   rust:
     name: rust
-    needs: [rust-fmt, rust-clippy, rust-test]
+    needs: [rust-fmt, rust-clippy, rust-test, rust-cross-check]
     if: always()
     runs-on: ubuntu-latest
     env:
       FMT_RESULT: ${{ needs.rust-fmt.result }}
       CLIPPY_RESULT: ${{ needs.rust-clippy.result }}
       TEST_RESULT: ${{ needs.rust-test.result }}
+      CROSS_RESULT: ${{ needs.rust-cross-check.result }}
     steps:
       - name: Aggregate
         run: |
           if [ "$FMT_RESULT" != "success" ] || \
              [ "$CLIPPY_RESULT" != "success" ] || \
-             [ "$TEST_RESULT" != "success" ]; then
-            echo "::error::rust failed (fmt=$FMT_RESULT clippy=$CLIPPY_RESULT test=$TEST_RESULT)"
+             [ "$TEST_RESULT" != "success" ] || \
+             [ "$CROSS_RESULT" != "success" ]; then
+            echo "::error::rust failed (fmt=$FMT_RESULT clippy=$CLIPPY_RESULT test=$TEST_RESULT cross=$CROSS_RESULT)"
             exit 1
           fi
           echo "rust green"
