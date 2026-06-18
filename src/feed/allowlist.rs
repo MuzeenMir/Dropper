@@ -36,10 +36,25 @@ pub struct AllowState {
     persist_path: PathBuf,
 }
 
+/// Current on-disk schema version. Bumped when the persisted format
+/// changes in a way an older reader can't safely parse. A file whose
+/// version is newer than this is rejected by [`load`] so a future v0.2
+/// migration takes over cleanly instead of silently misreading it.
+const SCHEMA_VERSION: u32 = 1;
+
 /// On-disk shape. Sorted on serialize so the file is diff-friendly.
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize)]
 struct PersistedAllowList {
+    /// Schema version stamp. Absent in pre-versioning v0.1 files, which
+    /// are treated as version 1 since the format was unchanged.
+    #[serde(default = "default_schema_version")]
+    version: u32,
+    #[serde(default)]
     forever: Vec<String>,
+}
+
+fn default_schema_version() -> u32 {
+    SCHEMA_VERSION
 }
 
 /// Construct an empty allowlist that will persist `forever` entries to
@@ -130,6 +145,15 @@ pub async fn load(allowlist: &AllowList) -> Result<usize> {
     let parsed: PersistedAllowList =
         toml::from_str(&text).with_context(|| format!("parsing allowlist {}", path.display()))?;
 
+    if parsed.version > SCHEMA_VERSION {
+        anyhow::bail!(
+            "allowlist {} is schema version {} but this dropper supports up to {}; upgrade dropper",
+            path.display(),
+            parsed.version,
+            SCHEMA_VERSION
+        );
+    }
+
     let mut guard = allowlist.write().await;
     guard.forever = parsed
         .forever
@@ -161,7 +185,10 @@ pub async fn forget(allowlist: &AllowList, domain: &str) -> Result<()> {
 async fn persist(state: &AllowState) -> Result<()> {
     let mut sorted: Vec<String> = state.forever.iter().cloned().collect();
     sorted.sort();
-    let payload = PersistedAllowList { forever: sorted };
+    let payload = PersistedAllowList {
+        version: SCHEMA_VERSION,
+        forever: sorted,
+    };
     let serialized = toml::to_string(&payload).context("serializing allowlist")?;
 
     let path = &state.persist_path;
@@ -319,5 +346,55 @@ mod tests {
         // Once layer
         assert!(is_allowed(&al, "another.example").await);
         assert!(is_allowed(&al, "Another.Example").await);
+    }
+
+    #[tokio::test]
+    async fn persisted_file_carries_schema_version() {
+        let path = tmp_path();
+        let al = new_allowlist(path.clone());
+        allow_forever(&al, "a.example").await.unwrap();
+
+        // The migration anchor: every file we write stamps the schema
+        // version so a future v0.2 reader can detect + migrate the format.
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(
+            text.contains("version = 1"),
+            "persisted allowlist must carry `version = 1`, got:\n{text}"
+        );
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn load_accepts_legacy_file_without_version() {
+        // A v0.1 file predates the version field. It must still load so
+        // existing users don't lose their `forever` entries on upgrade.
+        let path = tmp_path();
+        std::fs::write(&path, b"forever = [\"legacy.example\"]\n").unwrap();
+
+        let al = new_allowlist(path.clone());
+        let n = load(&al).await.unwrap();
+        assert_eq!(n, 1);
+        assert!(is_allowed(&al, "legacy.example").await);
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn load_rejects_future_schema_version() {
+        // A file written by a newer dropper (version > what we support)
+        // must surface an error rather than silently misreading a format
+        // this binary doesn't understand.
+        let path = tmp_path();
+        std::fs::write(&path, b"version = 999\nforever = []\n").unwrap();
+
+        let al = new_allowlist(path.clone());
+        let result = load(&al).await;
+        assert!(
+            result.is_err(),
+            "a future schema version must be rejected, not silently loaded"
+        );
+
+        let _ = std::fs::remove_file(&path);
     }
 }
