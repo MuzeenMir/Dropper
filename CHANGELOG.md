@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.5](https://github.com/MuzeenMir/Dropper/compare/v0.1.4...v0.1.5) (2026-06-18)
+
+
+### Features
+
+* **resolver:** wire allowlist decisions ([#31](https://github.com/MuzeenMir/Dropper/issues/31)) ([f92a63d](https://github.com/MuzeenMir/Dropper/commit/f92a63d0397f4ec2de5496f8c1109ac476fa4522))
+* **tray:** add shield tray icon SVGs (3 sizes x 3 states) per DESIGN.md spec ([#33](https://github.com/MuzeenMir/Dropper/issues/33)) ([e8622f2](https://github.com/MuzeenMir/Dropper/commit/e8622f22137694e5b63a3237ccc6b2d09b880846))
+
+
+### Documentation
+
+* add launch-ready install/trust README section + FAQ.md ([#37](https://github.com/MuzeenMir/Dropper/issues/37)) ([5b51e64](https://github.com/MuzeenMir/Dropper/commit/5b51e64c3680d30c1cdb6b0072bd17f9a640b0cd))
+* add SECURITY.md + CONTRIBUTING.md, cross-link from README ([#38](https://github.com/MuzeenMir/Dropper/issues/38)) ([94d868b](https://github.com/MuzeenMir/Dropper/commit/94d868b4f26dd9136d98f9e2f18e87c114dacc97))
+
 ## [0.1.4](https://github.com/MuzeenMir/Dropper/compare/v0.1.3...v0.1.4) (2026-05-11)
 
 
